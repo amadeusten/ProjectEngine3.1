@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .remove-row-btn { color: #ef4444; cursor: pointer; font-size: 14px; line-height: 1; }
+        .remove-row-btn:hover { color: #dc2626; }
+
+        /* Row drag */
+        .draggable-row { position: relative; }
+        .draggable-row.dragging { opacity: 0.4; background: #eff6ff; border-radius: 4px; }
+        .drag-handle { color: #9ca3af; cursor: grab; flex-shrink: 0; display: flex; align-items: center; padding: 0 2px; margin-top: 4px; }
+        .drag-handle:hover { color: #6b7280; }
+        .drag-over-top { border-top: 2px solid #3b82f6 !important; }
+        .drop-zone { min-height: 32px; border-radius: 4px; transition: background 0.15s; }
+        .drop-zone.drag-active { background: #eff6ff; border: 1.5px dashed #93c5fd; }
+
+        /* Section */
+        .fab-section { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; background: #fafafa; }
+        .fab-section.dragging-sec { opacity: 0.4; }
+        .fab-section.drag-over-sec { border-top: 3px solid #3b82f6; }
+        .fab-section-header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f3f4f6; border-radius: 7px 7px 0 0; border-bottom: 1px solid #e5e7eb; }
+        .fab-section-header.collapsed { border-radius: 7px; border-bottom: none; }
+        .fab-section-title { font-size: 12px; font-weight: 600; color: #374151; background: transparent; border: none; outline: none; flex-grow: 1; min-width: 0; }
+        .fab-section-title:focus { background: white; border: 1px solid #d1d5db; border-radius: 4px; padding: 1px 4px; }
+        .fab-section-body { padding: 10px 12px 12px; }
+        .fab-section-subtotal { font-size: 11px; color: #6b7280; white-space: nowrap; flex-shrink: 0; }
+        .sec-drag-handle { color: #9ca3af; cursor: grab; display: flex; align-items: center; padding: 0 2px; }
+        .sec-drag-handle:hover { color: #6b7280; }
+
+        /* Badges */
+        .row-type-badge { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+        .badge-mat { background: #dbeafe; color: #1d4ed8; }
+        .badge-per { background: #dbeafe; color: #1d4ed8; }
+        .badge-com { background: #fef3c7; color: #92400e; }
+        .badge-prt { background: #dbeafe; color: #1d4ed8; }
+        .badge-del { background: #dbeafe; color: #1d4ed8; }
+
+        /* Personnel block — white bg, blue border (matches print/delivery) */
+        .per-block { border: 1px solid #3b82f6; border-radius: 6px; background: #fff; margin-top: 4px; }
+        .per-block-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #eff6ff; border-radius: 5px 5px 0 0; border-bottom: 1px solid #3b82f6; }
+        .per-block-body { padding: 8px 10px 10px; }
+
+        /* Rate type radio pills */
+        .rate-radio { display: none; }
+        .rate-label { display: inline-block; padding: 1px 9px; border-radius: 9999px; border: 1px solid #d1d5db; font-size: 0.65rem; cursor: pointer; color: #6b7280; background: #fff; transition: all 0.15s; }
+        .rate-radio:checked + .rate-label { background: #059669; color: #fff; border-color: #059669; }
+
+        /* Chevron */
+        .chevron { transition: transform 0.2s; }
+        .chevron.open { transform: rotate(90deg); }
+
+        /* Add links — unified blue */
+        .add-link { font-size: 12px; font-weight: 600; color: #2563eb; display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 0; }
+        .add-link:hover { color: #1d4ed8; }
+        .add-link:disabled { color: #93c5fd; cursor: not-allowed; }
+
+        /* Section add buttons — same unified blue */
+        .sec-btn { font-size: 11px; color: #2563eb; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; background: none; border: none; padding: 2px 0; }
+        .sec-btn:hover { color: #1d4ed8; }
+        .sec-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Printing block — white bg, blue border */
+        .print-block { border: 1px solid #3b82f6; border-radius: 6px; background: #fff; margin-top: 4px; }
+        .print-block-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #eff6ff; border-radius: 5px 5px 0 0; border-bottom: 1px solid #3b82f6; cursor: pointer; user-select: none; }
+        .print-block-header.collapsed { border-radius: 5px; border-bottom: none; }
+        .print-block-body { padding: 10px 12px 12px; }
+        .print-cost-line { display: flex; justify-content: space-between; font-size: 10px; color: #6b7280; padding: 1px 0; }
+        .print-cost-line.subtotal-line { font-weight: 600; color: #374151; border-top: 1px solid #bfdbfe; margin-top: 4px; padding-top: 4px; }
+
+        /* Delivery block — white bg, blue border */
+        .del-block { border: 1px solid #3b82f6; border-radius: 6px; background: #fff; margin-top: 4px; }
+        .del-block-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: #eff6ff; border-radius: 5px 5px 0 0; border-bottom: 1px solid #3b82f6; cursor: pointer; user-select: none; }
+        .del-block-header.collapsed { border-radius: 5px; border-bottom: none; }
+        .del-block-body { padding: 10px 12px 12px; }
+
+        /* Toggle switch */
+        .tog-track { width: 30px; height: 16px; background: #d1d5db; border-radius: 9999px; position: relative; transition: background 0.2s; flex-shrink: 0; cursor: pointer; }
+        .tog-track.on { background: #2563eb; }
+        .tog-thumb { width: 12px; height: 12px; background: white; border-radius: 9999px; position: absolute; top: 2px; left: 2px; transition: left 0.2s; pointer-events: none; }
+        .tog-track.on .tog-thumb { left: 16px; }
+
+        /* Advanced labor */
+        .adv-labor-body { display: none; margin-top: 6px; }
+        .adv-labor-body.open { display: block; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div class="w-full max-w-screen-xl shadow-lg rounded-lg overflow-hidden bg-white">
+  <div class="flex">
+    <div class="flex-grow p-6">
+
+      <!-- Title + Multiple Items toggle -->
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-semibold text-gray-800">Fabrication Details</h1>
+        <label class="flex items-center gap-2 cursor-pointer select-none" id="multi-toggle-label">
+          <div class="tog-track" id="multi-tog"><div class="tog-thumb"></div></div>
+          <span class="text-xs font-medium text-gray-600">Multiple Items</span>
+        </label>
+      </div>
+
+      <!-- Description + optional Qty + Dimensions -->
+      <div id="header-fields" class="grid gap-x-2 mb-5 items-start" style="grid-template-columns:1fr auto">
+        <div>
+          <label class="text-xs font-medium text-gray-600 block">Description</label>
+          <textarea id="description" class="mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-xs" rows="3"></textarea>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 block">Dimensions</label>
+          <input id="dimensions" type="text" class="mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-xs h-7"/>
+        </div>
+      </div>
+
+      <!-- Add Section button -->
+      <div class="mb-3">
+        <button id="btn-add-sec" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Section
+        </button>
+      </div>
+
+      <!-- Global Add Bar -->
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mb-6">
+        <button id="btn-add-mat" class="add-link" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Material
+        </button>
+        <button id="btn-add-per" class="add-link" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Personnel
+        </button>
+        <button id="btn-add-com" class="add-link">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Components
+        </button>
+        <button id="btn-add-prt" class="add-link" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Printing
+        </button>
+        <button id="btn-add-del" class="add-link" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Delivery
+        </button>
+        <button class="add-link" disabled title="Coming soon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Services
+        </button>
+        <button class="add-link" disabled title="Coming soon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Operations
+        </button>
+      </div>
+
+      <!-- Ungrouped drop zone -->
+      <div id="ungrouped-area" class="drop-zone mb-2"></div>
+      <!-- Sections container -->
+      <div id="sections-container"></div>
+
+      <!-- Summary bar -->
+      <div class="rounded-md bg-gray-100 p-3 mt-4">
+        <div class="grid sm:grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-4">
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 items-center"><div class="text-xs">Total Cost</div><div id="total-cost" class="text-xs font-semibold">$0.00</div></div>
+            <div id="unit-cost-row" class="hidden grid grid-cols-2 items-center"><div class="text-xs text-gray-500 pl-3">↳ Unit Cost</div><div id="unit-cost" class="text-xs text-gray-500">$0.00</div></div>
+            <div class="grid grid-cols-2 items-center">
+              <div class="text-xs">Margin</div>
+              <div class="relative w-20">
+                <input id="margin" type="number" value="40" min="0" step="1" class="w-full h-8 pr-6 pl-2 border border-gray-300 rounded-md text-sm"/>
+                <span class="absolute inset-y-0 right-0 flex items-center pr-2 text-gray-500 text-sm">%</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 items-center"><div class="text-xs">Total Price</div><div id="total-price" class="text-xs font-semibold">$0.00</div></div>
+            <div id="unit-price-row" class="hidden grid grid-cols-2 items-center"><div class="text-xs text-gray-500 pl-3">↳ Unit Price</div><div id="unit-price" class="text-xs text-gray-500">$0.00</div></div>
+          </div>
+          <div class="hidden sm:flex justify-center h-full"><div class="border-l border-gray-300"></div></div>
+          <div class="flex flex-col justify-center items-center gap-2.5">
+            <button id="add-to-project-btn" class="w-full bg-blue-600 text-white px-4 py-1 rounded-md text-sm hover:bg-blue-700">Add to Project</button>
+            <button id="reset-btn" class="w-full bg-white border border-gray-300 px-4 py-1 rounded-md text-sm hover:bg-gray-50">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer Trigger -->
+    <div id="drawer-trigger" class="flex-shrink-0 bg-gray-50 hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center w-10" style="box-shadow:-4px 0 12px -4px rgba(0,0,0,0.05)">
+      <div class="flex flex-col items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><polyline points="15 18 9 12 15 6"/></svg>
+        <span class="text-xs font-medium text-gray-500" style="writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg)">Advanced Settings</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer -->
+<div id="advanced-drawer" class="fixed top-0 right-0 h-full w-80 bg-white shadow-xl p-4 transform translate-x-full z-50">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-base font-semibold">Advanced Settings</h2>
+    <button id="close-drawer-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let allFabMaterials   = [];
+let allPersonnel      = [];
+let allPrintMaterials = [];
+let fabLoaded = false, perLoaded = false, printLoaded = false;
+let rowCtr = 0, secCtr = 0;
+let isEditMode = false, originalRowNumber = null;
+let dragSrcEl = null, dragSrcSec = null;
+let multiOn = false, multiQty = 1;
+
+const DEFAULT_ORIGIN = '6716 NE 4th Avenue, Miami, FL 33138';
+
+// ══════════════════════════════════════════════════════════════
+//  DOM SHORTCUTS
+// ══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const ungrouped   = $('ungrouped-area');
+const secCont     = $('sections-container');
+const marginInput = $('margin');
+const addToProj   = $('add-to-project-btn');
+
+// ══════════════════════════════════════════════════════════════
+//  MULTIPLE ITEMS TOGGLE
+// ══════════════════════════════════════════════════════════════
+$('multi-toggle-label').addEventListener('click', () => {
+    multiOn = !multiOn;
+    $('multi-tog').classList.toggle('on', multiOn);
+    if (!multiOn) multiQty = 1;
+    refreshMultiUI();
+    updateTotals();
+});
+
+function refreshMultiUI() {
+    let qWrap = $('multi-qty-wrap');
+    if (multiOn) {
+        if (!qWrap) {
+            qWrap = document.createElement('div');
+            qWrap.id = 'multi-qty-wrap';
+            qWrap.innerHTML = `
+                <label class="text-xs font-medium text-gray-600 block">Quantity</label>
+                <input id="multi-qty" type="number" min="1" value="${multiQty}" step="1"
+                    class="mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md shadow-sm text-xs h-7" style="width:80px"/>`;
+            const hf = $('header-fields');
+            hf.style.gridTemplateColumns = '1fr auto auto';
+            // insert before last child (Dimensions)
+            hf.insertBefore(qWrap, hf.lastElementChild);
+            $('multi-qty').addEventListener('input', e => {
+                multiQty = Math.max(1, parseInt(e.target.value) || 1);
+                updateTotals();
+            });
+        }
+        $('unit-cost-row').classList.remove('hidden');
+        $('unit-price-row').classList.remove('hidden');
+    } else {
+        if (qWrap) { qWrap.remove(); $('header-fields').style.gridTemplateColumns = '1fr auto'; }
+        $('unit-cost-row').classList.add('hidden');
+        $('unit-price-row').classList.add('hidden');
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DATA LOADING
+// ══════════════════════════════════════════════════════════════
+function onFabMaterials(data)  { allFabMaterials = data || []; fabLoaded = true; checkLoaded(); }
+function onPersonnel(data)     { allPersonnel = data || []; perLoaded = true; checkLoaded(); }
+function onPrintMaterials(raw) {
+    allPrintMaterials = (raw||[]).map(m => ({
+        name:m[0], type:m[1], width:parseFloat(m[2]), height:parseFloat(m[3]),
+        costSheet:parseFloat(m[4]), costLinFt:parseFloat(m[5])
+    }));
+    console.log('allPrintMaterials loaded:', allPrintMaterials.map(m => m.name));
+    printLoaded = true; checkLoaded();
+}
+function checkLoaded() {
+    if (fabLoaded && perLoaded) {
+        ['btn-add-mat','btn-add-per','btn-add-del'].forEach(id => $(id).disabled = false);
+        document.querySelectorAll('.sec-btn.mat,.sec-btn.per,.sec-btn.del').forEach(b => b.disabled = false);
+    }
+    if (printLoaded) {
+        $('btn-add-prt').disabled = false;
+        document.querySelectorAll('.sec-btn.prt').forEach(b => b.disabled = false);
+    }
+    if (fabLoaded && perLoaded && window.editFormData) {
+        populateFormData(window.editFormData);
+        window.editFormData = null;
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SVG / ID HELPERS
+// ══════════════════════════════════════════════════════════════
+const GRIP  = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/></svg>`;
+const PLUS  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+const CHEVR = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+function uid() { return `r${++rowCtr}`; }
+
+// ══════════════════════════════════════════════════════════════
+//  OPTION BUILDERS
+// ══════════════════════════════════════════════════════════════
+function fabMatOpts() {
+    let o = '<option value="">Select Material...</option>';
+    allFabMaterials.forEach(m => { o += `<option value="${m.name}" data-cost="${m.unitCost}">${m.name}</option>`; });
+    return o;
+}
+function perOpts() {
+    let o = '<option value="">Select Personnel...</option>';
+    allPersonnel.forEach(p => {
+        const fn = p[11] || `${p[0]} ${p[1]}`.trim();
+        o += `<option value="${fn}" data-hourly="${p[2]||0}" data-dayrate="${p[3]||0}">${fn}</option>`;
+    });
+    return o;
+}
+function driverOpts() {
+    let o = '<option value="">Select Driver...</option>';
+    allPersonnel.forEach(p => {
+        const skills = (p[4]||'').toLowerCase();
+        if (!skills.includes('driver')) return;
+        const fn = p[11] || `${p[0]} ${p[1]}`.trim();
+        o += `<option value="${fn}" data-hourly="${p[2]||0}">${fn}</option>`;
+    });
+    return o;
+}
+function prtMatOpts() {
+    let o = '<option value="">Select Material...</option>';
+    allPrintMaterials.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.name;
+        opt.textContent = m.name;
+        o += opt.outerHTML;
+    });
+    return o;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MATERIAL ROW
+// ══════════════════════════════════════════════════════════════
+function buildMatRow(d) {
+    const id = uid(), div = document.createElement('div');
+    div.className = 'draggable-row flex items-start gap-1 mt-1 border border-transparent';
+    div.id = id; div.dataset.rowType = 'material'; div.setAttribute('draggable', 'true');
+    div.innerHTML = `
+        <div class="drag-handle mt-1">${GRIP}</div>
+        <span class="row-type-badge badge-mat mt-1.5">Mat</span>
+        <select class="mat-sel mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" style="flex:2.2;min-width:0;width:100%">${fabMatOpts()}</select>
+        <input type="number" class="mat-qty mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="Qty" step="0.01" style="flex:0.8;min-width:0;width:60px"/>
+        <input type="number" class="mat-uc  mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="Unit $" step="0.01" style="flex:1;min-width:0;width:70px"/>
+        <input type="number" class="row-total mat-tot mt-1 block px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-xs h-7" disabled style="flex:1;min-width:0;width:70px"/>
+        <button class="remove-row-btn mt-1 flex-shrink-0 w-5 text-center" data-remove="${id}">×</button>`;
+    const sel = div.querySelector('.mat-sel'), qty = div.querySelector('.mat-qty'),
+          uc  = div.querySelector('.mat-uc'),  tot = div.querySelector('.mat-tot');
+    const calc = () => { tot.value = ((parseFloat(qty.value)||0)*(parseFloat(uc.value)||0)).toFixed(2); updateTotals(); };
+    sel.addEventListener('change', () => { uc.value = sel.selectedOptions[0]?.dataset.cost||''; calc(); });
+    qty.addEventListener('input', calc); uc.addEventListener('input', calc);
+    attachDrag(div);
+    if (d) { sel.value = d.name||''; qty.value = d.quantity||''; uc.value = d.unitCost||''; calc(); }
+    return div;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PERSONNEL ROW
+// ══════════════════════════════════════════════════════════════
+function buildPerRow(d) {
+    const id = uid(), rg = `rg${id}`, div = document.createElement('div');
+    div.className = 'draggable-row mt-1 border border-transparent';
+    div.id = id; div.dataset.rowType = 'personnel'; div.setAttribute('draggable', 'true');
+
+    div.innerHTML = `
+    <div class="per-block">
+      <div class="per-block-header">
+        <span class="drag-handle" data-drag-handle>${GRIP}</span>
+        <span class="row-type-badge badge-per">Per</span>
+        <select class="per-sel block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7 flex-grow min-w-0">${perOpts()}</select>
+        <input type="number" class="row-total per-tot block px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-xs h-7" disabled style="width:80px;flex-shrink:0"/>
+        <button class="remove-row-btn flex-shrink-0 ml-1" data-remove="${id}">×</button>
+      </div>
+      <div class="per-block-body">
+        <!-- Rate type pills -->
+        <div class="flex items-center gap-1 mb-3">
+            <input type="radio" name="${rg}" id="${rg}h" class="rate-radio" value="hourly" checked/>
+            <label for="${rg}h" class="rate-label">Hourly</label>
+            <input type="radio" name="${rg}" id="${rg}d" class="rate-radio" value="dayrate"/>
+            <label for="${rg}d" class="rate-label">Day Rate</label>
+            <input type="radio" name="${rg}" id="${rg}p" class="rate-radio" value="project"/>
+            <label for="${rg}p" class="rate-label">Project Rate</label>
+        </div>
+        <!-- Hourly: Days · Hours · Rate -->
+        <div class="per-f-hourly flex items-end gap-3 flex-wrap">
+            <div><div class="text-xs text-gray-500 mb-0.5">Days</div><input type="number" class="per-days px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-6" style="width:52px" step="0.5" min="0" placeholder="0"/></div>
+            <div><div class="text-xs text-gray-500 mb-0.5">Hours</div><input type="number" class="per-hrs px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-6" style="width:52px" step="0.5" min="0" placeholder="0"/></div>
+            <div><div class="text-xs text-gray-500 mb-0.5">Rate ($/hr)</div><input type="number" class="per-rate px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-6" style="width:72px" step="0.01" min="0" placeholder="0.00"/></div>
+        </div>
+        <!-- Day Rate: Days · Rate -->
+        <div class="per-f-dayrate hidden flex items-end gap-3 flex-wrap">
+            <div><div class="text-xs text-gray-500 mb-0.5">Days</div><input type="number" class="per-dr-days px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-6" style="width:52px" step="0.5" min="0" placeholder="0"/></div>
+            <div><div class="text-xs text-gray-500 mb-0.5">Rate ($/day)</div><input type="number" class="per-dr-rate px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-6" style="width:72px" step="0.01" min="0" placeholder="0.00"/></div>
+        </div>
+        <!-- Project Rate -->
+        <div class="per-f-project hidden flex items-end gap-3">
+            <div><div class="text-xs text-gray-500 mb-0.5">Project Total ($)</div><input type="number" class="per-proj px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-6" style="width:90px" step="0.01" min="0" placeholder="0.00"/></div>
+        </div>
+        <!-- Date range -->
+        <div class="flex items-center gap-2 mt-3">
+            <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                <input type="checkbox" class="per-date-chk w-3 h-3 rounded accent-blue-600"/> Assign Dates
+            </label>
+            <div class="per-date-wrap hidden flex items-center gap-1.5 flex-wrap">
+                <input type="date" class="per-ds px-2 py-0.5 bg-white border border-gray-300 rounded-md text-xs h-6"/>
+                <span class="text-xs text-gray-400">–</span>
+                <input type="date" class="per-de px-2 py-0.5 bg-white border border-gray-300 rounded-md text-xs h-6"/>
+                <span class="per-dd text-xs text-gray-500"></span>
+            </div>
+        </div>
+      </div>
+    </div>`;
+
+    const sel    = div.querySelector('.per-sel');
+    const tot    = div.querySelector('.per-tot');
+    const fH     = div.querySelector('.per-f-hourly');
+    const fD     = div.querySelector('.per-f-dayrate');
+    const fP     = div.querySelector('.per-f-project');
+    const days   = div.querySelector('.per-days');
+    const hrs    = div.querySelector('.per-hrs');
+    const rate   = div.querySelector('.per-rate');
+    const drDays = div.querySelector('.per-dr-days');
+    const drRate = div.querySelector('.per-dr-rate');
+    const proj   = div.querySelector('.per-proj');
+    const dchk   = div.querySelector('.per-date-chk');
+    const dwrap  = div.querySelector('.per-date-wrap');
+    const ds     = div.querySelector('.per-ds');
+    const de     = div.querySelector('.per-de');
+    const dd     = div.querySelector('.per-dd');
+
+    function getRT() { return div.querySelector(`input[name="${rg}"]:checked`)?.value || 'hourly'; }
+
+    function calcTotal() {
+        const rt = getRT();
+        let total = 0;
+        if      (rt === 'hourly')  total = (parseFloat(days.value)||0) * (parseFloat(hrs.value)||0) * (parseFloat(rate.value)||0);
+        else if (rt === 'dayrate') total = (parseFloat(drDays.value)||0) * (parseFloat(drRate.value)||0);
+        else if (rt === 'project') total = parseFloat(proj.value)||0;
+        tot.value = total.toFixed(2);
+        updateTotals();
+    }
+
+    function switchRateType() {
+        const rt = getRT();
+        fH.classList.toggle('hidden', rt !== 'hourly');
+        fD.classList.toggle('hidden', rt !== 'dayrate');
+        fP.classList.toggle('hidden', rt !== 'project');
+        // Auto-populate rate from selected person
+        const o = sel.selectedOptions[0];
+        if (rt === 'hourly'  && o?.dataset.hourly)  rate.value   = parseFloat(o.dataset.hourly).toFixed(2);
+        if (rt === 'dayrate' && o?.dataset.dayrate) drRate.value = parseFloat(o.dataset.dayrate).toFixed(2);
+        calcTotal();
+    }
+
+    sel.addEventListener('change', () => {
+        switchRateType();
+    });
+    div.querySelectorAll(`input[name="${rg}"]`).forEach(r => r.addEventListener('change', switchRateType));
+    [days, hrs, rate, drDays, drRate, proj].forEach(el => el.addEventListener('input', calcTotal));
+
+    dchk.addEventListener('change', () => dwrap.classList.toggle('hidden', !dchk.checked));
+
+    function calcDateRange() {
+        if (!ds.value || !de.value) return;
+        const s = new Date(ds.value + 'T00:00:00'), e = new Date(de.value + 'T00:00:00');
+        if (e < s) { dd.textContent = ''; return; }
+        const n = Math.round((e - s) / 86400000) + 1;
+        const fmt = x => `${x.getMonth()+1}/${x.getDate()}/${x.getFullYear()}`;
+        dd.textContent = `${fmt(s)} – ${fmt(e)} (${n}d)`;
+        const rt = getRT();
+        if (rt === 'hourly')  days.value   = n;
+        if (rt === 'dayrate') drDays.value = n;
+        calcTotal();
+    }
+    ds.addEventListener('change', calcDateRange);
+    de.addEventListener('change', calcDateRange);
+
+    attachDrag(div);
+
+    if (d) {
+        sel.value = d.name || '';
+        const rt = d.rateType || 'hourly';
+        const radio = div.querySelector(`input[name="${rg}"][value="${rt}"]`);
+        if (radio) { radio.checked = true; switchRateType(); }
+        if (d.days)      days.value   = d.days;
+        if (d.hours)     hrs.value    = d.hours;
+        if (d.rate)      rate.value   = d.rate;
+        if (d.drDays)    drDays.value = d.drDays;
+        if (d.drRate)    drRate.value = d.drRate;
+        if (d.projTotal) proj.value   = d.projTotal;
+        if (d.dateStart && d.dateEnd) {
+            dchk.checked = true; dwrap.classList.remove('hidden');
+            ds.value = d.dateStart; de.value = d.dateEnd;
+            calcDateRange();
+        }
+        calcTotal();
+    }
+    return div;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  COMPONENT ROW
+// ══════════════════════════════════════════════════════════════
+function buildComRow(d) {
+    const id = uid(), div = document.createElement('div');
+    div.className = 'draggable-row flex items-start gap-1 mt-1 border border-transparent';
+    div.id = id; div.dataset.rowType = 'component'; div.setAttribute('draggable', 'true');
+    div.innerHTML = `
+        <div class="drag-handle mt-1">${GRIP}</div>
+        <span class="row-type-badge badge-com mt-1.5">Cmp</span>
+        <input type="text"   class="com-desc mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="Description" style="flex:2.5;min-width:0;width:100%"/>
+        <input type="number" class="com-qty  mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="Qty"  step="0.01" style="flex:0.8;min-width:0;width:60px"/>
+        <input type="number" class="com-rate mt-1 block px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="Rate" step="0.01" style="flex:1;min-width:0;width:70px"/>
+        <input type="number" class="row-total com-tot mt-1 block px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-xs h-7" disabled style="flex:1;min-width:0;width:70px"/>
+        <button class="remove-row-btn mt-1 flex-shrink-0 w-5 text-center" data-remove="${id}">×</button>`;
+    const qty = div.querySelector('.com-qty'), rate = div.querySelector('.com-rate'), tot = div.querySelector('.com-tot');
+    const calc = () => { tot.value = ((parseFloat(qty.value)||0) * (parseFloat(rate.value)||0)).toFixed(2); updateTotals(); };
+    [qty, rate].forEach(el => el.addEventListener('input', calc));
+    attachDrag(div);
+    if (d) { div.querySelector('.com-desc').value = d.description||''; qty.value = d.quantity||''; rate.value = d.rate||''; calc(); }
+    return div;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PRINTING BLOCK
+// ══════════════════════════════════════════════════════════════
+const toHrs = (t, u) => { const n = Number(t)||0; return u === 'Minutes' ? n/60 : n; };
+
+function calcPrintCosts(ps) {
+    const matName = (ps.materialName || '').trim();
+    const mat = allPrintMaterials.find(m => m.name.trim() === matName);
+    if (!mat || !ps.quantity || !ps.width || !ps.height) return null;
+    const qty = Number(ps.quantity)||0, aw = Number(ps.width)||0, ah = Number(ps.height)||0;
+    const bl = 0.25, sp = 0.25, awt = aw+bl, aht = ah+bl;
+    let matCost = 0, linFt = 0;
+    if (mat.type === 'ROLL') {
+        const rw = mat.width;
+        if (awt > rw && aht > rw) return { error: 'Artwork wider than selected roll.' };
+        const cP = Math.floor((rw+sp)/(awt+sp)), cL = Math.floor((rw+sp)/(aht+sp));
+        const cols = Math.max(cP,cL,1), rowH = cL>cP ? awt : aht;
+        linFt = ((Math.ceil(qty/cols)*rowH) + ((Math.ceil(qty/cols)-1)*sp)) / 12;
+        matCost = (linFt+2.5) * mat.costLinFt;
+    } else {
+        const sw = mat.width, sh = mat.height, sc = mat.costSheet;
+        const fp = (awt<=sw&&aht<=sh), fl = (awt<=sh&&aht<=sw);
+        if (!fp && !fl) return { error: 'Artwork larger than selected sheet.' };
+        const p1 = fp ? Math.floor((sw+sp)/(awt+sp))*Math.floor((sh+sp)/(aht+sp)) : 0;
+        const p2 = fl ? Math.floor((sw+sp)/(aht+sp))*Math.floor((sh+sp)/(awt+sp)) : 0;
+        const sheets = Math.ceil(qty / Math.max(p1,p2,1));
+        matCost = Math.max(sheets*sc, sc*0.5);
+    }
+    let sqFt = (awt*aht/144)*qty; if (ps.doubleSided) sqFt *= 2;
+    const perim = (aw*2+ah*2)*qty;
+    let cutH = (perim/120)/60; if (ps.complexShape) cutH *= 1.5;
+    const runH = (sqFt/0.83)/60 + cutH + (sqFt/20.52)/60 + (sqFt/6.2)/60;
+    const inkCost = sqFt*0.165, cutCost = cutH*25;
+    const desCost = (sqFt/25)*0.0625*60 + toHrs(ps.designTime, ps.designTimeUnit)*60;
+    let lamCost = 0; if (ps.lamination) lamCost = mat.type==='ROLL' ? linFt*1.02 : sqFt*0.2267;
+    const eqCost = runH*4.95;
+    const manOp = toHrs(ps.laborDecalsTime,ps.laborDecalsTimeUnit) + toHrs(ps.laborFinishingTime,ps.laborFinishingTimeUnit) + toHrs(ps.laborInstallingTime,ps.laborInstallingTimeUnit);
+    const opCost = (runH+manOp)*28;
+    const total = matCost+inkCost+cutCost+desCost+lamCost+eqCost+opCost;
+    return { total, mat:matCost, ink:inkCost, cut:cutCost, des:desCost, lam:lamCost, eq:eqCost, op:opCost };
+}
+
+function advLaborRow(key, label) {
+    return `<div><div class="flex items-center gap-2"><input type="checkbox" class="adv-chk w-3 h-3 accent-blue-600" data-key="${key}"/><span class="text-xs text-gray-700 font-medium">${label}</span><span class="text-xs text-gray-400">($28/hr)</span></div><div class="adv-inp hidden flex items-center gap-2 ml-5 mt-1" data-key="${key}"><input type="number" class="adv-qty w-20 px-2 py-1 bg-white border border-gray-300 rounded-md text-xs" placeholder="0" min="0" step="0.1" data-key="${key}"/><select class="adv-unit px-2 py-1 bg-white border border-gray-300 rounded-md text-xs" data-key="${key}"><option>Minutes</option><option>Hours</option></select></div></div>`;
+}
+
+function buildPrtRow(d) {
+    const id = uid(), div = document.createElement('div');
+    div.className = 'draggable-row mt-1 border border-transparent';
+    div.id = id; div.dataset.rowType = 'printing'; div.setAttribute('draggable','true');
+    const ps = Object.assign({
+        description:'', materialName:'', quantity:1, width:'', height:'',
+        complexShape:false, doubleSided:false, lamination:false,
+        designTime:'', designTimeUnit:'Minutes', laborDecalsTime:'', laborDecalsTimeUnit:'Minutes',
+        laborFinishingTime:'', laborFinishingTimeUnit:'Minutes', laborInstallingTime:'', laborInstallingTimeUnit:'Minutes'
+    }, d||{});
+    div._ps = ps;
+
+    div.innerHTML = `
+    <div class="print-block">
+      <div class="print-block-header prt-hdr">
+        <span class="drag-handle" data-drag-handle>${GRIP}</span>
+        <span class="row-type-badge badge-prt">Print</span>
+        <span class="prt-hdr-desc text-xs font-semibold text-blue-800 flex-grow truncate">${ps.description||'Printing'}</span>
+        <span class="prt-hdr-cost text-xs font-semibold text-blue-700 mr-1">—</span>
+        <span class="chevron open text-blue-400">${CHEVR}</span>
+        <button class="remove-row-btn ml-1 flex-shrink-0" data-remove="${id}">×</button>
+      </div>
+      <div class="print-block-body prt-body">
+        <div class="mb-3"><label class="text-xs font-medium text-gray-600 block">Description</label>
+          <input type="text" class="prt-desc mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="e.g. Vinyl banner"/></div>
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div><label class="text-xs font-medium text-gray-600 block">Quantity</label><input type="number" class="prt-qty mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" min="1" value="1"/></div>
+          <div><label class="text-xs font-medium text-gray-600 block">Width (in)</label><input type="number" class="prt-w mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" step="0.1" placeholder="0.0"/></div>
+          <div><label class="text-xs font-medium text-gray-600 block">Height (in)</label><input type="number" class="prt-h mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" step="0.1" placeholder="0.0"/></div>
+        </div>
+        <div class="mb-3"><label class="text-xs font-medium text-gray-600 block">Print Material</label>
+          <select class="prt-mat mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs">${prtMatOpts()}</select>
+          <div class="prt-err text-xs text-red-600 mt-1 hidden"></div></div>
+        <div class="flex items-center gap-4 mb-3">
+          <label class="flex items-center gap-1 text-xs text-gray-600 cursor-pointer"><input type="checkbox" class="prt-cx w-3 h-3"/> Complex Shape</label>
+          <label class="flex items-center gap-1 text-xs text-gray-600 cursor-pointer"><input type="checkbox" class="prt-db w-3 h-3"/> Double Sided</label>
+          <label class="flex items-center gap-1 text-xs text-gray-600 cursor-pointer"><input type="checkbox" class="prt-lm w-3 h-3"/> Lamination</label>
+        </div>
+        <div class="prt-bd bg-white rounded border border-blue-100 p-2 mb-3 hidden">
+          <div class="print-cost-line"><span>Material</span><span class="bd-mat">—</span></div>
+          <div class="print-cost-line"><span>Ink</span><span class="bd-ink">—</span></div>
+          <div class="print-cost-line"><span>Cutting</span><span class="bd-cut">—</span></div>
+          <div class="print-cost-line"><span>Design</span><span class="bd-des">—</span></div>
+          <div class="print-cost-line"><span>Lamination</span><span class="bd-lam">—</span></div>
+          <div class="print-cost-line"><span>Equipment</span><span class="bd-eq">—</span></div>
+          <div class="print-cost-line"><span>Operator</span><span class="bd-op">—</span></div>
+          <div class="print-cost-line subtotal-line"><span>Total Cost</span><span class="bd-tot">—</span></div>
+        </div>
+        <div class="border-t border-blue-100 pt-2">
+          <button class="text-blue-600 text-xs font-semibold flex items-center gap-1 hover:text-blue-800 prt-adv-tog">
+            <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Advanced Labor
+          </button>
+          <div class="adv-labor-body mt-2 space-y-2">
+            ${advLaborRow('design','Design Labor')}${advLaborRow('decals','Decals')}${advLaborRow('finishing','Finishing')}${advLaborRow('installing','Installing')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <input type="number" class="row-total prt-tot hidden" disabled value="0"/>`;
+
+    div.querySelector('.prt-hdr').addEventListener('click', e => {
+        if (e.target.closest('[data-drag-handle]') || e.target.closest('[data-remove]')) return;
+        const body = div.querySelector('.prt-body'), hdr = div.querySelector('.print-block-header'), chev = hdr.querySelector('.chevron');
+        const hidden = body.classList.contains('hidden');
+        body.classList.toggle('hidden', !hidden); hdr.classList.toggle('collapsed', !hidden); chev.classList.toggle('open', hidden);
+    });
+    div.querySelector('.prt-adv-tog').addEventListener('click', e => {
+        e.stopPropagation();
+        const b = div.querySelector('.adv-labor-body'); b.classList.toggle('open');
+        div.querySelector('.prt-adv-tog .chevron').classList.toggle('open', b.classList.contains('open'));
+    });
+    const sync = () => {
+        ps.description  = div.querySelector('.prt-desc').value;
+        ps.materialName = div.querySelector('.prt-mat').value;
+        ps.quantity     = div.querySelector('.prt-qty').value;
+        ps.width        = div.querySelector('.prt-w').value;
+        ps.height       = div.querySelector('.prt-h').value;
+        ps.complexShape = div.querySelector('.prt-cx').checked;
+        ps.doubleSided  = div.querySelector('.prt-db').checked;
+        ps.lamination   = div.querySelector('.prt-lm').checked;
+        refreshPrint(div, ps);
+    };
+    div.querySelectorAll('.prt-desc,.prt-qty,.prt-w,.prt-h').forEach(el => el.addEventListener('input', sync));
+    div.querySelectorAll('.prt-mat,.prt-cx,.prt-db,.prt-lm').forEach(el => el.addEventListener('change', sync));
+    [
+        { k:'design', ts:'designTime', tu:'designTimeUnit' },
+        { k:'decals', ts:'laborDecalsTime', tu:'laborDecalsTimeUnit' },
+        { k:'finishing', ts:'laborFinishingTime', tu:'laborFinishingTimeUnit' },
+        { k:'installing', ts:'laborInstallingTime', tu:'laborInstallingTimeUnit' }
+    ].forEach(({ k, ts, tu }) => {
+        const chk = div.querySelector(`.adv-chk[data-key="${k}"]`);
+        const inp = div.querySelector(`.adv-inp[data-key="${k}"]`);
+        const qEl = div.querySelector(`.adv-qty[data-key="${k}"]`);
+        const uEl = div.querySelector(`.adv-unit[data-key="${k}"]`);
+        if (ps[ts]) { chk.checked = true; inp.classList.remove('hidden'); qEl.value = ps[ts]; uEl.value = ps[tu]||'Minutes'; }
+        chk.addEventListener('change', () => { inp.classList.toggle('hidden', !chk.checked); if (!chk.checked) { ps[ts]=''; qEl.value=''; } sync(); });
+        qEl.addEventListener('input', () => { ps[ts] = qEl.value; sync(); });
+        uEl.addEventListener('change', () => { ps[tu] = uEl.value; sync(); });
+    });
+    attachDrag(div);
+    if (d) {
+        div.querySelector('.prt-desc').value = d.description||'';
+        div.querySelector('.prt-qty').value  = d.quantity||1;
+        div.querySelector('.prt-w').value    = d.width||'';
+        div.querySelector('.prt-h').value    = d.height||'';
+        if (d.materialName) div.querySelector('.prt-mat').value = d.materialName;
+        div.querySelector('.prt-cx').checked = !!d.complexShape;
+        div.querySelector('.prt-db').checked = !!d.doubleSided;
+        div.querySelector('.prt-lm').checked = !!d.lamination;
+        if (d.materialName && d.quantity && d.width && d.height) setTimeout(() => refreshPrint(div, ps), 80);
+    }
+    return div;
+}
+
+function refreshPrint(div, ps) {
+    const errEl = div.querySelector('.prt-err'), bd = div.querySelector('.prt-bd');
+    const tot = div.querySelector('.prt-tot');
+    const hdrD = div.querySelector('.prt-hdr-desc'), hdrC = div.querySelector('.prt-hdr-cost');
+    const fmt = v => `$${v.toFixed(2)}`;
+    hdrD.textContent = ps.description || 'Printing'; errEl.classList.add('hidden');
+    const r = calcPrintCosts(ps);
+    if (!r) { bd.classList.add('hidden'); tot.value='0'; hdrC.textContent='—'; updateTotals(); return; }
+    if (r.error) { errEl.textContent=r.error; errEl.classList.remove('hidden'); bd.classList.add('hidden'); tot.value='0'; hdrC.textContent='—'; updateTotals(); return; }
+    div.querySelector('.bd-mat').textContent = fmt(r.mat);
+    div.querySelector('.bd-ink').textContent = fmt(r.ink);
+    div.querySelector('.bd-cut').textContent = fmt(r.cut);
+    div.querySelector('.bd-des').textContent = fmt(r.des);
+    div.querySelector('.bd-lam').textContent = fmt(r.lam);
+    div.querySelector('.bd-eq').textContent  = fmt(r.eq);
+    div.querySelector('.bd-op').textContent  = fmt(r.op);
+    div.querySelector('.bd-tot').textContent = fmt(r.total);
+    bd.classList.remove('hidden'); tot.value = r.total.toFixed(2); hdrC.textContent = fmt(r.total);
+    updateTotals();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DELIVERY BLOCK
+// ══════════════════════════════════════════════════════════════
+function buildDelRow(d) {
+    const id = uid(), div = document.createElement('div');
+    div.className = 'draggable-row mt-1 border border-transparent';
+    div.id = id; div.dataset.rowType = 'delivery'; div.setAttribute('draggable', 'true');
+
+    div.innerHTML = `
+    <div class="del-block">
+      <div class="del-block-header del-hdr">
+        <span class="drag-handle" data-drag-handle>${GRIP}</span>
+        <span class="row-type-badge badge-del">Del</span>
+        <span class="del-hdr-dest text-xs font-semibold text-blue-800 flex-grow truncate">Delivery</span>
+        <span class="del-hdr-cost text-xs font-semibold text-blue-700 mr-1">—</span>
+        <span class="chevron open text-blue-400">${CHEVR}</span>
+        <button class="remove-row-btn ml-1 flex-shrink-0" data-remove="${id}">×</button>
+      </div>
+      <div class="del-block-body del-body">
+
+        <!-- Change Origin toggle -->
+        <div class="flex items-center gap-2 mb-2">
+          <div class="tog-track del-orig-tog"><div class="tog-thumb"></div></div>
+          <span class="text-xs text-gray-500 cursor-pointer select-none del-orig-lbl">Change Origin</span>
+        </div>
+        <!-- Origin field (hidden by default) -->
+        <div class="del-orig-wrap hidden mb-2">
+          <label class="text-xs font-medium text-gray-600 block">Origin</label>
+          <input type="text" class="del-origin mt-1 block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="${DEFAULT_ORIGIN}"/>
+        </div>
+
+        <!-- Destination -->
+        <div class="mb-3">
+          <label class="text-xs font-medium text-gray-600 block">Destination</label>
+          <div class="flex gap-2 mt-1">
+            <input type="text" class="del-dest block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" placeholder="Enter destination address"/>
+            <button class="del-calc text-xs bg-blue-600 text-white px-3 rounded-md hover:bg-blue-700 whitespace-nowrap flex-shrink-0">Calculate Route</button>
+          </div>
+          <div class="del-status text-xs text-gray-400 mt-1 hidden"></div>
+        </div>
+
+        <!-- Include Return toggle -->
+        <div class="flex items-center gap-2 mb-3">
+          <div class="tog-track del-ret-tog"><div class="tog-thumb"></div></div>
+          <span class="text-xs text-gray-500 cursor-pointer select-none del-ret-lbl">Include Return</span>
+        </div>
+
+        <!-- Miles / Time / Driver / Total -->
+        <div class="grid grid-cols-4 gap-3 mb-1">
+          <div><label class="text-xs text-gray-500 block mb-0.5">Miles</label>
+            <input type="number" class="del-miles block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" step="0.1" min="0" placeholder="0.0"/></div>
+          <div><label class="text-xs text-gray-500 block mb-0.5">Time (min)</label>
+            <input type="number" class="del-time block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7" step="1" min="0" placeholder="0"/></div>
+          <div><label class="text-xs text-gray-500 block mb-0.5">Driver</label>
+            <select class="del-driver block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs">${driverOpts()}</select></div>
+          <div><label class="text-xs text-gray-500 block mb-0.5">Total</label>
+            <input type="number" class="row-total del-tot block w-full px-2 py-1 bg-gray-100 border border-gray-300 rounded-md text-xs h-7" disabled/></div>
+        </div>
+        <div class="text-xs text-gray-400 mt-1">Total = (Miles × $3.00) + (Time ÷ 60 × Driver hourly rate)</div>
+      </div>
+    </div>`;
+
+    const origTog   = div.querySelector('.del-orig-tog');
+    const origLbl   = div.querySelector('.del-orig-lbl');
+    const origWrap  = div.querySelector('.del-orig-wrap');
+    const origInput = div.querySelector('.del-origin');
+    const destInput = div.querySelector('.del-dest');
+    const calcBtn   = div.querySelector('.del-calc');
+    const statusEl  = div.querySelector('.del-status');
+    const retTog    = div.querySelector('.del-ret-tog');
+    const retLbl    = div.querySelector('.del-ret-lbl');
+    const milesEl   = div.querySelector('.del-miles');
+    const timeEl    = div.querySelector('.del-time');
+    const driverSel = div.querySelector('.del-driver');
+    const totEl     = div.querySelector('.del-tot');
+    const hdrDest   = div.querySelector('.del-hdr-dest');
+    const hdrCost   = div.querySelector('.del-hdr-cost');
+
+    let changeOrigin = false, includeReturn = false;
+
+    function calcDelTotal() {
+        const miles  = parseFloat(milesEl.value)||0;
+        const mins   = parseFloat(timeEl.value)||0;
+        const dRate  = parseFloat(driverSel.selectedOptions[0]?.dataset.hourly||0);
+        const total  = (miles * 3.00) + ((mins / 60) * dRate);
+        totEl.value = total.toFixed(2);
+        hdrCost.textContent = total > 0 ? `$${total.toFixed(2)}` : '—';
+        updateTotals();
+    }
+
+    [origTog, origLbl].forEach(el => el.addEventListener('click', () => {
+        changeOrigin = !changeOrigin;
+        origTog.classList.toggle('on', changeOrigin);
+        origWrap.classList.toggle('hidden', !changeOrigin);
+    }));
+
+    [retTog, retLbl].forEach(el => el.addEventListener('click', () => {
+        includeReturn = !includeReturn;
+        retTog.classList.toggle('on', includeReturn);
+    }));
+
+    calcBtn.addEventListener('click', () => {
+        const dest = destInput.value.trim();
+        if (!dest) { alert('Please enter a destination address.'); return; }
+        const origin = (changeOrigin && origInput.value.trim()) ? origInput.value.trim() : DEFAULT_ORIGIN;
+        calcBtn.disabled = true; calcBtn.textContent = 'Calculating…';
+        statusEl.textContent = 'Fetching route…'; statusEl.classList.remove('hidden');
+        google.script.run
+            .withSuccessHandler(result => {
+                calcBtn.disabled = false; calcBtn.textContent = 'Calculate Route';
+                if (result.error) { statusEl.textContent = `Error: ${result.error}`; return; }
+                let miles = result.miles, mins = result.minutes;
+                if (includeReturn) { miles *= 2; mins *= 2; }
+                milesEl.value = miles.toFixed(1);
+                timeEl.value  = Math.round(mins);
+                hdrDest.textContent = dest;
+                statusEl.textContent = includeReturn
+                    ? `${(miles/2).toFixed(1)} mi each way · ${Math.round(mins/2)} min (return included)`
+                    : `${miles.toFixed(1)} mi · ${Math.round(mins)} min`;
+                calcDelTotal();
+            })
+            .withFailureHandler(err => {
+                calcBtn.disabled = false; calcBtn.textContent = 'Calculate Route';
+                statusEl.textContent = 'Route calculation failed.';
+                console.error(err);
+            })
+            .calculateDeliveryRoute(origin, dest);
+    });
+
+    [milesEl, timeEl].forEach(el => el.addEventListener('input', calcDelTotal));
+    driverSel.addEventListener('change', calcDelTotal);
+
+    div.querySelector('.del-hdr').addEventListener('click', e => {
+        if (e.target.closest('[data-drag-handle]') || e.target.closest('[data-remove]')) return;
+        const body = div.querySelector('.del-body'), hdr = div.querySelector('.del-block-header'), chev = hdr.querySelector('.chevron');
+        const hidden = body.classList.contains('hidden');
+        body.classList.toggle('hidden', !hidden); hdr.classList.toggle('collapsed', !hidden); chev.classList.toggle('open', hidden);
+    });
+
+    attachDrag(div);
+
+    if (d) {
+        if (d.destination) { destInput.value = d.destination; hdrDest.textContent = d.destination; }
+        if (d.changeOrigin) { changeOrigin = true; origTog.classList.add('on'); origWrap.classList.remove('hidden'); origInput.value = d.origin||''; }
+        if (d.includeReturn) { includeReturn = true; retTog.classList.add('on'); }
+        if (d.miles)  milesEl.value  = d.miles;
+        if (d.time)   timeEl.value   = d.time;
+        if (d.driver) driverSel.value = d.driver;
+        calcDelTotal();
+    }
+    return div;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  TOTALS
+// ══════════════════════════════════════════════════════════════
+function updateTotals() {
+    let grand = 0;
+    document.querySelectorAll('.row-total').forEach(i => { grand += parseFloat(i.value)||0; });
+    document.querySelectorAll('.fab-section').forEach(sec => {
+        let sub = 0; sec.querySelectorAll('.row-total').forEach(i => { sub += parseFloat(i.value)||0; });
+        const b = sec.querySelector('.fab-section-subtotal'); if (b) b.textContent = `$${sub.toFixed(2)}`;
+    });
+    $('total-cost').textContent = `$${grand.toFixed(2)}`;
+    const m = (parseFloat(marginInput.value)||0) / 100;
+    const rawPrice = (m >= 0 && m < 1) ? grand / (1 - m) : grand;
+    const price = Math.ceil(rawPrice);
+    $('total-price').textContent = `$${price.toFixed(2)}`;
+    const qty = multiOn ? Math.max(multiQty, 1) : 1;
+    $('unit-cost').textContent  = `$${(grand / qty).toFixed(2)}`;
+    $('unit-price').textContent = `$${(price / qty).toFixed(2)}`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  SECTIONS (draggable)
+// ══════════════════════════════════════════════════════════════
+function buildSection(title, collapsed) {
+    ++secCtr;
+    const id = `sec-${secCtr}`, sec = document.createElement('div');
+    sec.className = 'fab-section'; sec.id = id;
+    sec.innerHTML = `
+        <div class="fab-section-header ${collapsed ? 'collapsed' : ''}">
+            <div class="sec-drag-handle" data-sec-handle>
+              <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor" style="opacity:0.5"><circle cx="3" cy="3" r="1.5"/><circle cx="7" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="7" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="7" cy="13" r="1.5"/></svg>
+            </div>
+            <svg class="chevron ${collapsed ? '' : 'open'} flex-shrink-0 cursor-pointer text-gray-400 hover:text-gray-600" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" data-sec-toggle="${id}"><polyline points="9 18 15 12 9 6"/></svg>
+            <input class="fab-section-title" value="${title||'New Section'}" placeholder="Section title" spellcheck="false"/>
+            <span class="fab-section-subtotal">$0.00</span>
+            <button class="text-gray-400 hover:text-red-500 ml-1 text-base leading-none" data-sec-del="${id}">×</button>
+        </div>
+        <div class="fab-section-body ${collapsed ? 'hidden' : ''}">
+            <div class="drop-zone sec-zone" data-section="${id}"></div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-2 border-t border-gray-200">
+                <button class="sec-btn mat" data-sec-add="mat" data-section="${id}">${PLUS}Material</button>
+                <button class="sec-btn per" data-sec-add="per" data-section="${id}">${PLUS}Personnel</button>
+                <button class="sec-btn com" data-sec-add="com" data-section="${id}">${PLUS}Component</button>
+                <button class="sec-btn prt" data-sec-add="prt" data-section="${id}">${PLUS}Printing</button>
+                <button class="sec-btn del" data-sec-add="del" data-section="${id}">${PLUS}Delivery</button>
+            </div>
+        </div>`;
+
+    sec.querySelector(`[data-sec-toggle="${id}"]`).addEventListener('click', () => {
+        const b = sec.querySelector('.fab-section-body'), h = sec.querySelector('.fab-section-header'), c = sec.querySelector('.chevron');
+        const hidden = b.classList.contains('hidden');
+        b.classList.toggle('hidden', !hidden); c.classList.toggle('open', hidden); h.classList.toggle('collapsed', !hidden);
+    });
+    sec.querySelector(`[data-sec-del="${id}"]`).addEventListener('click', () => {
+        const n = sec.querySelectorAll('.draggable-row').length;
+        if (n > 0 && !confirm(`Delete section and all ${n} row(s)?`)) return;
+        sec.remove(); updateTotals();
+    });
+    sec.querySelectorAll('[data-sec-add]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const t = btn.dataset.secAdd, zone = sec.querySelector('.sec-zone');
+            if (t==='mat')      { if (!fabLoaded)   return alert('Data loading…'); zone.appendChild(buildMatRow(null)); }
+            else if (t==='per') { if (!perLoaded)   return alert('Data loading…'); zone.appendChild(buildPerRow(null)); }
+            else if (t==='com') { zone.appendChild(buildComRow(null)); }
+            else if (t==='prt') { if (!printLoaded) return alert('Print materials loading…'); zone.appendChild(buildPrtRow(null)); }
+            else if (t==='del') { if (!perLoaded)   return alert('Data loading…'); zone.appendChild(buildDelRow(null)); }
+            updateTotals();
+        });
+    });
+
+    // Section header drag
+    const hdrEl = sec.querySelector('.fab-section-header');
+    hdrEl.setAttribute('draggable', 'true');
+    hdrEl.addEventListener('dragstart', e => {
+        // only drag from handle or the header itself (not from inputs/buttons)
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        dragSrcSec = sec; sec.classList.add('dragging-sec');
+        e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', sec.id);
+        e.stopPropagation();
+    });
+    hdrEl.addEventListener('dragend', () => {
+        sec.classList.remove('dragging-sec');
+        document.querySelectorAll('.drag-over-sec').forEach(el => el.classList.remove('drag-over-sec'));
+        dragSrcSec = null;
+    });
+    sec.addEventListener('dragover', e => {
+        if (!dragSrcSec || dragSrcSec === sec) return;
+        e.preventDefault(); e.stopPropagation();
+        document.querySelectorAll('.drag-over-sec').forEach(el => el.classList.remove('drag-over-sec'));
+        sec.classList.add('drag-over-sec');
+    });
+    sec.addEventListener('dragleave', e => {
+        if (!sec.contains(e.relatedTarget)) sec.classList.remove('drag-over-sec');
+    });
+    sec.addEventListener('drop', e => {
+        if (!dragSrcSec || dragSrcSec === sec) return;
+        e.preventDefault(); e.stopPropagation();
+        sec.classList.remove('drag-over-sec');
+        secCont.insertBefore(dragSrcSec, sec);
+        updateTotals();
+    });
+
+    attachDropZone(sec.querySelector('.sec-zone'));
+    secCont.appendChild(sec);
+    return sec;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DRAG & DROP (rows)
+// ══════════════════════════════════════════════════════════════
+function attachDrag(row) {
+    row.addEventListener('dragstart', e => {
+        if (dragSrcSec) return; // section drag in progress
+        dragSrcEl = row; row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', row.id);
+    });
+    row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        document.querySelectorAll('.drag-over-top').forEach(el => el.classList.remove('drag-over-top'));
+        document.querySelectorAll('.drop-zone').forEach(z => z.classList.remove('drag-active'));
+        dragSrcEl = null;
+    });
+}
+function attachDropZone(zone) {
+    zone.addEventListener('dragover', e => {
+        e.preventDefault(); zone.classList.add('drag-active');
+        const a = dragAfter(zone, e.clientY);
+        document.querySelectorAll('.drag-over-top').forEach(el => el.classList.remove('drag-over-top'));
+        if (a) a.classList.add('drag-over-top');
+    });
+    zone.addEventListener('dragleave', e => {
+        if (!zone.contains(e.relatedTarget)) {
+            zone.classList.remove('drag-active');
+            document.querySelectorAll('.drag-over-top').forEach(el => el.classList.remove('drag-over-top'));
+        }
+    });
+    zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('drag-active');
+        document.querySelectorAll('.drag-over-top').forEach(el => el.classList.remove('drag-over-top'));
+        if (!dragSrcEl) return;
+        const a = dragAfter(zone, e.clientY);
+        a ? zone.insertBefore(dragSrcEl, a) : zone.appendChild(dragSrcEl);
+        updateTotals();
+    });
+}
+function dragAfter(container, y) {
+    return [...container.querySelectorAll('.draggable-row:not(.dragging)')].reduce((c, el) => {
+        const box = el.getBoundingClientRect(), off = y - box.top - box.height/2;
+        return (off < 0 && off > c.offset) ? { offset: off, element: el } : c;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+attachDropZone(ungrouped);
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-remove]');
+    if (b) { const r = document.getElementById(b.dataset.remove); if (r) { r.remove(); updateTotals(); } }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  GLOBAL BUTTONS
+// ══════════════════════════════════════════════════════════════
+$('btn-add-mat').addEventListener('click', () => { ungrouped.appendChild(buildMatRow(null)); updateTotals(); });
+$('btn-add-per').addEventListener('click', () => { ungrouped.appendChild(buildPerRow(null)); updateTotals(); });
+$('btn-add-com').addEventListener('click', () => { ungrouped.appendChild(buildComRow(null)); updateTotals(); });
+$('btn-add-prt').addEventListener('click', () => { ungrouped.appendChild(buildPrtRow(null)); updateTotals(); });
+$('btn-add-del').addEventListener('click', () => { ungrouped.appendChild(buildDelRow(null)); updateTotals(); });
+$('btn-add-sec').addEventListener('click', () => buildSection('New Section', false));
+
+// ══════════════════════════════════════════════════════════════
+//  COLLECT / POPULATE
+// ══════════════════════════════════════════════════════════════
+function collectZone(zone) {
+    const rows = [];
+    zone.querySelectorAll(':scope > .draggable-row').forEach(row => {
+        const t = row.dataset.rowType;
+        if (t === 'material') {
+            const n = row.querySelector('.mat-sel').value; if (!n) return;
+            rows.push({ type:'material', name:n, quantity:parseFloat(row.querySelector('.mat-qty').value)||0, unitCost:parseFloat(row.querySelector('.mat-uc').value)||0, total:parseFloat(row.querySelector('.mat-tot').value)||0 });
+        } else if (t === 'personnel') {
+            const n = row.querySelector('.per-sel').value; if (!n) return;
+            const rg  = row.querySelector('.rate-radio')?.name || '';
+            const rt  = rg ? (row.querySelector(`input[name="${rg}"]:checked`)?.value||'hourly') : 'hourly';
+            const dc  = row.querySelector('.per-date-chk').checked;
+            rows.push({
+                type:'personnel', name:n, rateType:rt,
+                days:     parseFloat(row.querySelector('.per-days').value)||0,
+                hours:    parseFloat(row.querySelector('.per-hrs').value)||0,
+                rate:     parseFloat(row.querySelector('.per-rate').value)||0,
+                drDays:   parseFloat(row.querySelector('.per-dr-days').value)||0,
+                drRate:   parseFloat(row.querySelector('.per-dr-rate').value)||0,
+                projTotal:parseFloat(row.querySelector('.per-proj').value)||0,
+                total:    parseFloat(row.querySelector('.per-tot').value)||0,
+                dateStart:dc ? row.querySelector('.per-ds').value : null,
+                dateEnd:  dc ? row.querySelector('.per-de').value : null,
+            });
+        } else if (t === 'component') {
+            const desc = row.querySelector('.com-desc').value.trim(); if (!desc) return;
+            rows.push({ type:'component', description:desc, quantity:parseFloat(row.querySelector('.com-qty').value)||0, rate:parseFloat(row.querySelector('.com-rate').value)||0, total:parseFloat(row.querySelector('.com-tot').value)||0 });
+        } else if (t === 'printing') {
+            const ps = row._ps || {};
+            rows.push({ type:'printing', ...ps, total:parseFloat(row.querySelector('.prt-tot').value)||0 });
+        } else if (t === 'delivery') {
+            const co = row.querySelector('.del-orig-tog').classList.contains('on');
+            const ir = row.querySelector('.del-ret-tog').classList.contains('on');
+            rows.push({
+                type:'delivery',
+                destination: row.querySelector('.del-dest').value.trim(),
+                changeOrigin:co,
+                origin:      co ? row.querySelector('.del-origin').value.trim() : DEFAULT_ORIGIN,
+                includeReturn:ir,
+                miles:  parseFloat(row.querySelector('.del-miles').value)||0,
+                time:   parseFloat(row.querySelector('.del-time').value)||0,
+                driver: row.querySelector('.del-driver').value,
+                total:  parseFloat(row.querySelector('.del-tot').value)||0,
+            });
+        }
+    });
+    return rows;
+}
+
+function collectFormData() {
+    const d = {
+        description: $('description').value.trim(),
+        dimensions:  $('dimensions').value.trim(),
+        margin:      parseFloat(marginInput.value)||40,
+        multiOn, multiQty,
+        ungrouped: collectZone(ungrouped),
+        sections: []
+    };
+    if (isEditMode && originalRowNumber) d.originalRowNumber = originalRowNumber;
+    document.querySelectorAll('.fab-section').forEach(sec => {
+        d.sections.push({
+            title:     sec.querySelector('.fab-section-title').value,
+            collapsed: sec.querySelector('.fab-section-body').classList.contains('hidden'),
+            rows:      collectZone(sec.querySelector('.sec-zone'))
+        });
+    });
+    const all = [...d.ungrouped, ...d.sections.flatMap(s => s.rows)];
+    d.materials  = all.filter(r => r.type === 'material');
+    d.personnel  = all.filter(r => r.type === 'personnel');
+    d.components = all.filter(r => r.type === 'component');
+    d.printing   = all.filter(r => r.type === 'printing');
+    d.delivery   = all.filter(r => r.type === 'delivery');
+    return d;
+}
+
+function fromData(d) {
+    if (!d) return null;
+    if (d.type === 'material')  return buildMatRow(d);
+    if (d.type === 'personnel') return buildPerRow(d);
+    if (d.type === 'component') return buildComRow(d);
+    if (d.type === 'printing')  return buildPrtRow(d);
+    if (d.type === 'delivery')  return buildDelRow(d);
+}
+
+function populateFormData(fd) {
+    if (!fd) return;
+    if (fd.originalRowNumber) {
+        isEditMode = true; originalRowNumber = fd.originalRowNumber;
+        addToProj.textContent = 'Update Project'; document.querySelector('h1').textContent = 'Edit Fabrication Details';
+    }
+    if (fd.description) $('description').value = fd.description;
+    if (fd.dimensions)  $('dimensions').value  = fd.dimensions;
+    if (fd.margin !== undefined) marginInput.value = fd.margin;
+    if (fd.multiOn) {
+        multiOn = true; multiQty = fd.multiQty || 1;
+        $('multi-tog').classList.add('on');
+        refreshMultiUI();
+        const mq = $('multi-qty'); if (mq) mq.value = multiQty;
+    }
+    if (!fd.ungrouped) {
+        (fd.materials  || []).forEach(d => ungrouped.appendChild(buildMatRow(d)));
+        (fd.personnel  || []).forEach(d => ungrouped.appendChild(buildPerRow(d)));
+        (fd.components || []).forEach(d => ungrouped.appendChild(buildComRow(d)));
+        (fd.printing   || []).forEach(d => ungrouped.appendChild(buildPrtRow(d)));
+        (fd.delivery   || []).forEach(d => ungrouped.appendChild(buildDelRow(d)));
+    } else {
+        (fd.ungrouped || []).forEach(d => { const r = fromData(d); if (r) ungrouped.appendChild(r); });
+        (fd.sections  || []).forEach(s => {
+            const sec = buildSection(s.title, s.collapsed);
+            (s.rows || []).forEach(d => { const r = fromData(d); if (r) sec.querySelector('.sec-zone').appendChild(r); });
+        });
+    }
+    setTimeout(updateTotals, 150);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ADD TO PROJECT
+// ══════════════════════════════════════════════════════════════
+function addToProject() {
+    const desc = $('description').value.trim();
+    if (!desc) return alert('Please enter a description.');
+    const price = parseFloat($('total-price').textContent.replace(/[^0-9.-]+/g,''))||0;
+    if (price <= 0) return alert('Please add rows to calculate a total price.');
+    const fd = collectFormData();
+    const payload = { description:desc, dimensions:fd.dimensions, totalPrice:price, formData:fd, originalRowNumber: isEditMode ? originalRowNumber : null };
+    addToProj.disabled = true; const orig = addToProj.textContent;
+    addToProj.textContent = isEditMode ? 'Updating…' : 'Adding…'; addToProj.classList.add('opacity-50');
+    google.script.run
+        .withSuccessHandler(r => { addToProj.disabled=false; addToProj.textContent=orig; addToProj.classList.remove('opacity-50'); r.success ? (r.isUpdate ? resetToNew() : reset()) : alert(`Error: ${r.message}`); })
+        .withFailureHandler(e => { addToProj.disabled=false; addToProj.textContent=orig; addToProj.classList.remove('opacity-50'); console.error(e); alert('An error occurred.'); })
+        .addFabricationToProject(payload);
+}
+
+function reset() {
+    $('description').value=''; $('dimensions').value=''; marginInput.value='40';
+    ungrouped.innerHTML=''; secCont.innerHTML=''; secCtr=0; rowCtr=0;
+    multiOn=false; multiQty=1; $('multi-tog').classList.remove('on'); refreshMultiUI();
+    updateTotals();
+}
+function resetToNew() { reset(); isEditMode=false; originalRowNumber=null; addToProj.textContent='Add to Project'; document.querySelector('h1').textContent='Fabrication Details'; }
+
+// ══════════════════════════════════════════════════════════════
+//  MISC LISTENERS + INIT
+// ══════════════════════════════════════════════════════════════
+$('drawer-trigger').addEventListener('click',  () => $('advanced-drawer').classList.remove('translate-x-full'));
+$('close-drawer-btn').addEventListener('click', () => $('advanced-drawer').classList.add('translate-x-full'));
+$('reset-btn').addEventListener('click', reset);
+addToProj.addEventListener('click', addToProject);
+marginInput.addEventListener('input', updateTotals);
+
+google.script.run.withSuccessHandler(onFabMaterials).getMaterials();
+google.script.run.withSuccessHandler(onPersonnel).getPersonnel();
+google.script.run.withSuccessHandler(onPrintMaterials).getPrintingMaterials();
+
+}); // end DOMContentLoaded
+</script>
+</body>
+</html>
