@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <base target="_top">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #advanced-drawer { transition: transform 0.3s ease-in-out; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .item-row { display: grid; gap: 0.5rem; align-items: end; }
+        .item-row.single-item { grid-template-columns: repeat(3, 1fr); }
+        .item-row.multi-item  { grid-template-columns: 2fr 1fr 1fr 1fr 28px; }
+        .pay-radio { display: none; }
+        .pay-label {
+            display: inline-block; padding: 2px 10px; border-radius: 9999px;
+            border: 1px solid #d1d5db; font-size: 0.65rem; cursor: pointer;
+            color: #6b7280; background: #fff; transition: all 0.15s;
+        }
+        .pay-radio:checked + .pay-label { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .add-item-link {
+            font-size: 0.65rem; color: #2563eb; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 3px;
+            background: none; border: none; padding: 0; margin-top: 4px;
+        }
+        .add-item-link:hover { color: #1d4ed8; }
+        .remove-item-btn {
+            color: #ef4444; cursor: pointer; font-size: 16px;
+            line-height: 1; background: none; border: none; padding: 0;
+        }
+        .remove-item-btn:hover { color: #dc2626; }
+        .field-error { font-size: 0.65rem; color: #dc2626; margin-top: 2px; }
+        .tog-track { width: 30px; height: 16px; background: #d1d5db; border-radius: 9999px; position: relative; transition: background 0.2s; flex-shrink: 0; cursor: pointer; }
+        .tog-track.on { background: #2563eb; }
+        .tog-thumb { width: 12px; height: 12px; background: white; border-radius: 9999px; position: absolute; top: 2px; left: 2px; transition: left 0.2s; pointer-events: none; }
+        .tog-track.on .tog-thumb { left: 16px; }
+        /* Advanced labor entry rows */
+        .adv-entry { display: flex; align-items: end; gap: 0.35rem; margin-top: 4px; }
+        .adv-entry select, .adv-entry input { font-size: 0.75rem; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div class="w-full max-w-screen-xl shadow-lg rounded-lg overflow-hidden bg-white">
+  <div class="flex">
+    <!-- MAIN PANEL -->
+    <div id="main-panel" class="flex-grow p-6">
+      <h1 class="text-xl font-semibold text-gray-800 mb-4">Printing Cost Calculator</h1>
+
+      <!-- Designer / Operator (left) + Description (right) -->
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="space-y-2">
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1">Designer</label>
+            <select id="designer-select"
+              class="block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 h-7">
+              <option value="">Select Designer</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-gray-600 block mb-1">Operator</label>
+            <select id="operator-select"
+              class="block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 h-7">
+              <option value="">Select Operator</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-600 block mb-1">Description</label>
+          <textarea id="description" rows="3"
+            class="block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+        </div>
+      </div>
+
+      <!-- Material -->
+      <div class="mb-4">
+        <label class="text-xs font-medium text-gray-600 block mb-1">Material</label>
+        <select id="material"
+          class="block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+          <option value="">Select Material</option>
+        </select>
+        <div id="error-message" class="field-error hidden"></div>
+      </div>
+
+      <!-- Track Quantities Toggle -->
+      <div id="track-qty-toggle" class="hidden flex items-center gap-2 mb-3">
+        <div class="tog-track" id="track-qty-tog"><div class="tog-thumb"></div></div>
+        <span class="text-xs font-medium text-gray-600 cursor-pointer select-none" id="track-qty-label">Track Quantities</span>
+        <span class="text-xs text-gray-400">(Show per-item pricing on sheet)</span>
+      </div>
+
+      <!-- Detail column headers -->
+      <div id="detail-headers-single" class="mb-1" style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem;">
+        <div class="text-xs font-medium text-gray-600">Quantity</div>
+        <div class="text-xs font-medium text-gray-600">Width (in)</div>
+        <div class="text-xs font-medium text-gray-600">Height (in)</div>
+      </div>
+      <div id="detail-headers-multi" class="mb-1" style="display:none; grid-template-columns:2fr 1fr 1fr 1fr 28px; gap:0.5rem;">
+        <div class="text-xs font-medium text-gray-600">Item Name</div>
+        <div class="text-xs font-medium text-gray-600">Qty</div>
+        <div class="text-xs font-medium text-gray-600">Width (in)</div>
+        <div class="text-xs font-medium text-gray-600">Height (in)</div>
+        <div></div>
+      </div>
+
+      <div id="items-container" class="mb-1 space-y-2"></div>
+
+      <div class="mb-5">
+        <button id="add-item-btn" class="add-item-link">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>Add Item
+        </button>
+      </div>
+
+      <!-- Options grid -->
+      <div class="grid grid-cols-2 gap-x-8 mb-5">
+        <div>
+          <div class="text-xs font-medium text-gray-600 mb-2">Options</div>
+          <div class="space-y-1.5">
+            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+              <input type="checkbox" id="complexShape" class="rounded"> Complex Shape
+            </label>
+            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+              <input type="checkbox" id="doubleSided" class="rounded"> Double Sided
+            </label>
+            <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+              <input type="checkbox" id="lamination" class="rounded"> Lamination
+            </label>
+          </div>
+        </div>
+        <div>
+          <div class="text-xs font-medium text-gray-600 mb-2">Additional Options</div>
+          <!-- Printing Installation -->
+          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer mb-3">
+            <input type="checkbox" id="installation-checkbox" class="rounded"> Printing Installation
+          </label>
+          <div id="installation-block" class="hidden space-y-3 pl-1">
+            <div>
+              <label class="text-xs font-medium text-gray-500 block mb-1">Installer</label>
+              <select id="installer-select"
+                class="block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 h-7">
+                <option value="">Select Installer</option>
+              </select>
+            </div>
+            <div>
+              <div class="text-xs font-medium text-gray-500 mb-1.5">Payment Type</div>
+              <div class="flex gap-2">
+                <input type="radio" name="pay-type" id="pay-sqft" class="pay-radio" value="sqft" checked>
+                <label for="pay-sqft" class="pay-label">SqFt</label>
+                <input type="radio" name="pay-type" id="pay-hourly" class="pay-radio" value="hourly">
+                <label for="pay-hourly" class="pay-label">Hourly</label>
+                <input type="radio" name="pay-type" id="pay-flat" class="pay-radio" value="flat">
+                <label for="pay-flat" class="pay-label">Flat Rate</label>
+              </div>
+            </div>
+            <div id="install-sqft-fields" class="grid grid-cols-3 gap-2">
+              <div><label class="text-xs text-gray-500 block mb-1">Rate ($/sqft)</label>
+                <input type="number" id="install-sqft-rate" value="3.00" step="0.01" min="0"
+                  class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></div>
+              <div><label class="text-xs text-gray-500 block mb-1">SqFt</label>
+                <input type="number" id="install-sqft-area" readonly class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs bg-gray-50"></div>
+              <div><label class="text-xs text-gray-500 block mb-1">Total</label>
+                <input type="number" id="install-sqft-total" readonly class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs bg-gray-50"></div>
+            </div>
+            <div id="install-hourly-fields" class="hidden grid grid-cols-3 gap-2">
+              <div><label class="text-xs text-gray-500 block mb-1">Hours</label>
+                <input type="number" id="install-hours" step="0.25" min="0"
+                  class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></div>
+              <div><label class="text-xs text-gray-500 block mb-1">Rate ($/hr)</label>
+                <input type="number" id="install-hourly-rate" step="0.01" min="0"
+                  class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></div>
+              <div><label class="text-xs text-gray-500 block mb-1">Total</label>
+                <input type="number" id="install-hourly-total" readonly class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs bg-gray-50"></div>
+            </div>
+            <div id="install-flat-fields" class="hidden">
+              <label class="text-xs text-gray-500 block mb-1">Total (Flat Rate)</label>
+              <input type="number" id="install-flat-total" step="0.01" min="0"
+                class="block w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+          </div>
+
+          <!-- White Ink -->
+          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer mb-3 mt-3">
+            <input type="checkbox" id="white-ink-checkbox" class="rounded"> White Ink
+          </label>
+          <div id="white-ink-block" class="hidden space-y-3 pl-1">
+            <div>
+              <label class="text-xs font-medium text-gray-500 block mb-1">Number of Passes</label>
+              <select id="white-ink-passes"
+                class="block w-full px-2 py-1 bg-white border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUMMARY BAR -->
+      <div class="rounded-md bg-gray-100 p-3">
+        <div class="grid items-start gap-x-3" style="grid-template-columns:1fr auto 1fr auto 1fr;">
+          <div class="space-y-1.5">
+            <div class="flex justify-between gap-2"><span class="text-xs text-gray-600">Total Cost</span><span id="total-cost" class="text-xs font-semibold">$0.00</span></div>
+            <div class="flex justify-between gap-2 items-center">
+              <span class="text-xs text-gray-600">Margin</span>
+              <div class="relative w-20">
+                <input id="margin" type="number" value="60" min="0" step="1" class="w-full h-7 pr-5 pl-2 border border-gray-300 rounded-md text-xs">
+                <span class="absolute inset-y-0 right-0 flex items-center pr-1.5 text-gray-400 text-xs">%</span>
+              </div>
+            </div>
+            <div class="flex justify-between gap-2"><span class="text-xs text-gray-600">Total Price</span><span id="total-price" class="text-xs font-semibold">$0.00</span></div>
+            <div class="flex justify-between gap-2"><span class="text-xs text-gray-600">Unit Price</span><span id="unit-price" class="text-xs font-semibold">$0.00</span></div>
+          </div>
+          <div class="self-stretch border-l border-gray-300 mx-1"></div>
+          <div class="space-y-1.5">
+            <div class="text-xs font-medium text-gray-500 mb-1">Material Usage</div>
+            <div class="flex justify-between gap-2"><span id="usage-label" class="text-xs text-gray-600">Sheets</span><span id="usage-value" class="text-xs font-semibold">—</span></div>
+            <div class="flex justify-between gap-2"><span class="text-xs text-gray-600">Total SqFt</span><span id="total-sqft" class="text-xs font-semibold">—</span></div>
+            <div id="installation-cost-row" class="hidden flex justify-between gap-2"><span class="text-xs text-gray-600">Install Cost</span><span id="install-cost-display" class="text-xs font-semibold">$0.00</span></div>
+          </div>
+          <div class="self-stretch border-l border-gray-300 mx-1"></div>
+          <div class="flex flex-col gap-2 justify-center">
+            <button id="add-to-project-btn" class="w-full bg-blue-600 text-white px-4 py-1.5 rounded-md text-xs font-medium hover:bg-blue-700">Add to Project</button>
+            <button id="reset-btn" class="w-full bg-white border border-gray-300 px-4 py-1.5 rounded-md text-xs font-medium hover:bg-gray-50">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRAWER TRIGGER -->
+    <div id="drawer-trigger" class="flex-shrink-0 bg-gray-50 hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center w-10" style="box-shadow:-4px 0 12px -4px rgba(0,0,0,0.05)">
+      <div class="flex flex-col items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span class="text-xs font-medium text-gray-500" style="writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg)">Advanced Settings</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADVANCED DRAWER (Item 2.2 — multi-person labor) -->
+<div id="advanced-drawer" class="fixed top-0 right-0 h-full w-96 bg-white shadow-xl p-4 transform translate-x-full z-50 transition-transform duration-300 overflow-y-auto">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-base font-semibold">Advanced Settings</h2>
+    <button id="close-drawer-btn" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+  </div>
+  <div class="space-y-0" id="adv-labor-container">
+    <!-- Design Labor -->
+    <div class="py-3" data-adv-key="design">
+      <div class="flex items-center space-x-3">
+        <input type="checkbox" class="adv-cb h-4 w-4 text-blue-600 border-gray-300 rounded" data-adv-key="design">
+        <label class="text-sm text-gray-700 font-medium">Labor Design</label>
+      </div>
+      <div class="ml-7 text-xs text-gray-500 mt-1">$60.00 per hour</div>
+      <div class="adv-entries ml-2 hidden mt-2" data-adv-key="design"></div>
+      <button class="adv-add add-item-link ml-2 hidden mt-1" data-adv-key="design">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Labor
+      </button>
+    </div>
+    <hr class="border-gray-200">
+    <!-- Decals Labor -->
+    <div class="py-3" data-adv-key="decals">
+      <div class="flex items-center space-x-3">
+        <input type="checkbox" class="adv-cb h-4 w-4 text-blue-600 border-gray-300 rounded" data-adv-key="decals">
+        <label class="text-sm text-gray-700 font-medium">Labor Decals</label>
+      </div>
+      <div class="ml-7 text-xs text-gray-500 mt-1">$28.00 per hour</div>
+      <div class="adv-entries ml-2 hidden mt-2" data-adv-key="decals"></div>
+      <button class="adv-add add-item-link ml-2 hidden mt-1" data-adv-key="decals">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Labor
+      </button>
+    </div>
+    <hr class="border-gray-200">
+    <!-- Finishing Labor -->
+    <div class="py-3" data-adv-key="finishing">
+      <div class="flex items-center space-x-3">
+        <input type="checkbox" class="adv-cb h-4 w-4 text-blue-600 border-gray-300 rounded" data-adv-key="finishing">
+        <label class="text-sm text-gray-700 font-medium">Labor Finishing</label>
+      </div>
+      <div class="ml-7 text-xs text-gray-500 mt-1">$28.00 per hour</div>
+      <div class="adv-entries ml-2 hidden mt-2" data-adv-key="finishing"></div>
+      <button class="adv-add add-item-link ml-2 hidden mt-1" data-adv-key="finishing">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Labor
+      </button>
+    </div>
+    <hr class="border-gray-200">
+    <!-- Installing Labor -->
+    <div class="py-3" data-adv-key="installing">
+      <div class="flex items-center space-x-3">
+        <input type="checkbox" class="adv-cb h-4 w-4 text-blue-600 border-gray-300 rounded" data-adv-key="installing">
+        <label class="text-sm text-gray-700 font-medium">Labor Installing</label>
+      </div>
+      <div class="ml-7 text-xs text-gray-500 mt-1">$28.00 per hour</div>
+      <div class="adv-entries ml-2 hidden mt-2" data-adv-key="installing"></div>
+      <button class="adv-add add-item-link ml-2 hidden mt-1" data-adv-key="installing">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Labor
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────
+const state = {
+    materials: [], personnel: [],
+    materialName: '', description: '', margin: 60,
+    designerName: '', operatorName: '',
+    isMultiItem: false, trackQuantities: false,
+    items: [{ itemName:'', quantity:1, width:'', height:'' }],
+    complexShape: false, doubleSided: false, lamination: false,
+    installation: false, installPayType: 'sqft',
+    installSqftRate: 3.00, installHours: '', installHourlyRate: '', installFlatTotal: '',
+    installInstallerName: '',
+    whiteInk: false, whiteInkPasses: 1,
+    // Sprint 2: structured advanced labor (replaces flat fields)
+    advancedLabor: {
+        design:     [],  // [{name, qty, unit, rate}]
+        decals:     [],
+        finishing:  [],
+        installing: []
+    }
+};
+let isEditMode = false, originalRowNumber = null;
+
+// ── CONSTANTS ───────────────────────────────────────────────────
+const fmt  = v => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(isNaN(v)?0:v);
+const toHrs = (t,u) => { const n=Number(t)||0; return u==='Minutes'?n/60:n; };
+const WHITE_INK_SPEED_BASE=0.75, WHITE_INK_SPEED_DECAY=0.80, WHITE_INK_COST_PER_SQFT=0.198, WHITE_INK_PASS_MULTIPLIER=1;
+const ADV_DEFAULTS = { design:{rate:60,skill:'design labor'}, decals:{rate:28,skill:'printing labor'}, finishing:{rate:28,skill:'printing labor'}, installing:{rate:28,skill:'printing labor'} };
+const PLUS_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+
+// ── PERSONNEL DROPDOWN BUILDERS ─────────────────────────────────
+function buildPersonnelOpts(skillFilter) {
+    let html = '<option value="">Select...</option>';
+    const seen = new Set();
+    state.personnel.forEach(p => {
+        const skills = (p[4]||'').toLowerCase();
+        const match = Array.isArray(skillFilter)
+            ? skillFilter.some(s => skills.includes(s))
+            : skills.includes(skillFilter);
+        if (!match) return;
+        const fn = p[11] || `${p[0]} ${p[1]}`.trim();
+        if (seen.has(fn)) return;
+        seen.add(fn);
+        html += `<option value="${fn}" data-rate="${p[2]||0}">${fn}</option>`;
+    });
+    return html;
+}
+
+// ── TRACK QUANTITIES ────────────────────────────────────────────
+function updateTrackQtyVisibility() {
+    const el = document.getElementById('track-qty-toggle');
+    el.classList.toggle('hidden', !(state.isMultiItem && state.items.length > 1));
+    const tog = document.getElementById('track-qty-tog');
+    tog.style.opacity = isEditMode ? '0.5' : '';
+    tog.style.pointerEvents = isEditMode ? 'none' : '';
+}
+
+// ── ITEM ROWS ───────────────────────────────────────────────────
+function buildItemRow(index, isMulti) {
+    const item = state.items[index];
+    const row = document.createElement('div');
+    row.className = 'item-row ' + (isMulti ? 'multi-item' : 'single-item');
+    row.dataset.rowIndex = index;
+    const ic = 'block w-full px-2 py-1 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 h-7';
+    if (isMulti) {
+        const d = document.createElement('div');
+        d.innerHTML = `<input type="text" data-idx="${index}" data-field="itemName" value="${item.itemName||''}" placeholder="Item name" class="${ic}">`;
+        row.appendChild(d);
+    }
+    [['quantity','number',item.quantity,'1','1'],['width','number',item.width,'0.0','0.1'],['height','number',item.height,'0.0','0.1']].forEach(([f,t,v,ph,st]) => {
+        const d = document.createElement('div');
+        d.innerHTML = `<input type="${t}" data-idx="${index}" data-field="${f}" value="${v||''}" placeholder="${ph}" step="${st}" min="0" class="${ic}">`;
+        row.appendChild(d);
+    });
+    if (isMulti) {
+        const d = document.createElement('div');
+        d.style.cssText = 'display:flex;align-items:flex-end;padding-bottom:1px';
+        if (index > 0 && !isEditMode) d.innerHTML = `<button class="remove-item-btn" data-del="${index}">×</button>`;
+        row.appendChild(d);
+    }
+    return row;
+}
+function rebuildItemsUI() {
+    const c = document.getElementById('items-container');
+    c.innerHTML = '';
+    document.getElementById('detail-headers-single').style.display = state.isMultiItem ? 'none' : 'grid';
+    document.getElementById('detail-headers-multi').style.display = state.isMultiItem ? 'grid' : 'none';
+    state.items.forEach((_,i) => c.appendChild(buildItemRow(i, state.isMultiItem)));
+    attachItemListeners();
+    updateTrackQtyVisibility();
+}
+function attachItemListeners() {
+    document.querySelectorAll('#items-container input').forEach(inp => {
+        inp.addEventListener('input', e => {
+            const idx=parseInt(e.target.dataset.idx), f=e.target.dataset.field;
+            if (f && idx>=0 && idx<state.items.length) { state.items[idx][f]=e.target.value; calculateEstimate(); }
+        });
+    });
+    document.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            state.items.splice(parseInt(e.target.dataset.del), 1);
+            if (state.items.length <= 1) { state.isMultiItem = false; state.trackQuantities = false; document.getElementById('track-qty-tog').classList.remove('on'); }
+            rebuildItemsUI(); calculateEstimate();
+        });
+    });
+}
+
+// ── ADVANCED LABOR UI (Item 2.2) ────────────────────────────────
+function buildAdvEntry(key, data) {
+    const def = ADV_DEFAULTS[key];
+    const d = data || { name:'', qty:'', unit:'Hours', rate:def.rate };
+    const div = document.createElement('div');
+    div.className = 'adv-entry';
+    const selClass = 'px-2 py-1 bg-white border border-gray-300 rounded-md text-xs h-7';
+    div.innerHTML = `
+        <select class="adv-per ${selClass}" style="flex:1.5;min-width:0">${buildPersonnelOpts(def.skill)}</select>
+        <input type="number" class="adv-qty ${selClass}" placeholder="0" min="0" step="0.1" style="width:48px;flex-shrink:0" value="${d.qty||''}">
+        <select class="adv-unit ${selClass}" style="width:68px;flex-shrink:0"><option value="Hours" ${d.unit==='Hours'?'selected':''}>Hours</option><option value="Minutes" ${d.unit==='Minutes'?'selected':''}>Minutes</option></select>
+        <input type="number" class="adv-rate ${selClass}" placeholder="$/hr" min="0" step="0.01" style="width:58px;flex-shrink:0" value="${d.rate||def.rate}">
+        <button class="remove-item-btn flex-shrink-0" style="margin-bottom:2px">×</button>`;
+    if (d.name) div.querySelector('.adv-per').value = d.name;
+    // Wire listeners
+    const perSel = div.querySelector('.adv-per');
+    const rateInp = div.querySelector('.adv-rate');
+    perSel.addEventListener('change', () => {
+        // Pre-fill rate from selected person's hourly rate
+        const opt = perSel.selectedOptions[0];
+        if (opt && opt.dataset.rate) rateInp.value = parseFloat(opt.dataset.rate) || def.rate;
+        syncAdvLabor(key);
+    });
+    div.querySelector('.adv-qty').addEventListener('input', () => syncAdvLabor(key));
+    div.querySelector('.adv-unit').addEventListener('change', () => syncAdvLabor(key));
+    rateInp.addEventListener('input', () => syncAdvLabor(key));
+    div.querySelector('.remove-item-btn').addEventListener('click', () => { div.remove(); syncAdvLabor(key); });
+    return div;
+}
+
+function syncAdvLabor(key) {
+    const container = document.querySelector(`.adv-entries[data-adv-key="${key}"]`);
+    const entries = [];
+    container.querySelectorAll('.adv-entry').forEach(row => {
+        const name = row.querySelector('.adv-per').value;
+        const qty = parseFloat(row.querySelector('.adv-qty').value) || 0;
+        const unit = row.querySelector('.adv-unit').value;
+        const rate = parseFloat(row.querySelector('.adv-rate').value) || ADV_DEFAULTS[key].rate;
+        if (name || qty > 0) entries.push({ name, qty, unit, rate });
+    });
+    state.advancedLabor[key] = entries;
+    calculateEstimate();
+}
+
+function rebuildAdvEntries(key, entries) {
+    const container = document.querySelector(`.adv-entries[data-adv-key="${key}"]`);
+    container.innerHTML = '';
+    (entries || []).forEach(e => container.appendChild(buildAdvEntry(key, e)));
+}
+
+// ── ADVANCED LABOR HOURS/COST HELPERS ───────────────────────────
+function getAdvLaborHours(key) {
+    return (state.advancedLabor[key] || []).reduce((sum, e) => sum + toHrs(e.qty, e.unit), 0);
+}
+function getAdvLaborCost(key) {
+    return (state.advancedLabor[key] || []).reduce((sum, e) => sum + toHrs(e.qty, e.unit) * (e.rate || ADV_DEFAULTS[key].rate), 0);
+}
+
+// ── PER-ITEM PRICING ────────────────────────────────────────────
+function getPerItemPricing(totalCost, totalPrice, validItems, totalSqFt) {
+    if (!validItems.length || totalSqFt <= 0 || totalPrice <= 0) return [];
+    const bleed = 0.25;
+    const itemSqFts = validItems.map(item => {
+        const aw = Number(item.width)+bleed, ah = Number(item.height)+bleed;
+        let sqft = (aw*ah/144) * (Number(item.quantity)||0);
+        if (state.doubleSided) sqft *= 2;
+        return sqft;
+    });
+    const grandSqFt = itemSqFts.reduce((s,v) => s+v, 0);
+    const pricing = [];
+    let allocated = 0;
+    validItems.forEach((item, i) => {
+        const sqftShare = grandSqFt > 0 ? itemSqFts[i]/grandSqFt : 0;
+        const qty = Number(item.quantity) || 1;
+        let itemTotal;
+        if (i === validItems.length - 1) {
+            itemTotal = Math.round((totalPrice - allocated) * 100) / 100;
+        } else {
+            itemTotal = Math.round(totalPrice * sqftShare * 100) / 100;
+            allocated += itemTotal;
+        }
+        pricing.push({ unitPrice: qty>0 ? Math.round((itemTotal/qty)*100)/100 : 0, total: itemTotal, sqftShare });
+    });
+    return pricing;
+}
+
+// ── CALCULATE ESTIMATE (Item 3.4) ───────────────────────────────
+function calculateEstimate() {
+    const errDiv = document.getElementById('error-message');
+    errDiv.textContent = ''; errDiv.classList.add('hidden');
+    const mat = state.materials.find(m => m.name === state.materialName);
+    if (!mat) { resetCostsUI(); return; }
+    const validItems = state.items.filter(it => Number(it.quantity)>0 && Number(it.width)>0 && Number(it.height)>0);
+    if (!validItems.length) { resetCostsUI(); return; }
+
+    const bleed=0.25, spacing=0.25;
+    let totalMatCost=0, totalLinFt=0, totalSheets=0, totalSqFt=0, totalPerimeter=0, hasError=false;
+
+    validItems.forEach(item => {
+        const qty=Number(item.quantity), aw=Number(item.width), ah=Number(item.height);
+        const artW=aw+bleed, artH=ah+bleed;
+        if (mat.type==='ROLL') {
+            if (artW>mat.width && artH>mat.width) { errDiv.textContent=`"${item.itemName||'Item'}" is wider than the roll.`; errDiv.classList.remove('hidden'); hasError=true; return; }
+            const cP=Math.floor((mat.width+spacing)/(artW+spacing)), cL=Math.floor((mat.width+spacing)/(artH+spacing));
+            const cols=Math.max(cP,cL,1), layoutH=cL>cP?artW:artH, rows=Math.ceil(qty/cols);
+            totalLinFt += ((rows*layoutH)+((rows-1)*spacing))/12;
+        } else {
+            const fitP=artW<=mat.width&&artH<=mat.height, fitL=artW<=mat.height&&artH<=mat.width;
+            if (!fitP&&!fitL) { errDiv.textContent=`"${item.itemName||'Item'}" is larger than the sheet.`; errDiv.classList.remove('hidden'); hasError=true; return; }
+            const p1=fitP?Math.floor((mat.width+spacing)/(artW+spacing))*Math.floor((mat.height+spacing)/(artH+spacing)):0;
+            const p2=fitL?Math.floor((mat.width+spacing)/(artH+spacing))*Math.floor((mat.height+spacing)/(artW+spacing)):0;
+            const sh=Math.ceil(qty/Math.max(p1,p2,1));
+            totalSheets += sh;
+            totalMatCost += Math.max(sh*mat.costSheet, mat.costSheet*0.5);
+        }
+        let sqft=(artW*artH)/144*qty; if (state.doubleSided) sqft*=2;
+        totalSqFt += sqft;
+        totalPerimeter += (aw*2+ah*2)*qty;
+    });
+
+    if (mat.type==='ROLL') totalMatCost = (totalLinFt+2.5)*mat.costLinFt;
+    if (hasError) { resetCostsUI(); return; }
+
+    const printHrs = (totalSqFt/0.83)/60;
+    let cutHrs = (totalPerimeter/120)/60;
+    if (state.complexShape) cutHrs*=1.5;
+    const ripHrs = (totalSqFt/20.52)/60;
+    const compHrs = (totalSqFt/6.2)/60;
+
+    let whiteInkPrintHrs = 0;
+    if (state.whiteInk) {
+        const wiSpeed = WHITE_INK_SPEED_BASE * Math.pow(WHITE_INK_SPEED_DECAY, state.whiteInkPasses - 1);
+        whiteInkPrintHrs = (totalSqFt / wiSpeed) / 60;
+    }
+
+    const runHrs = printHrs + whiteInkPrintHrs + cutHrs + ripHrs + compHrs;
+
+    // Advanced labor — read from structured arrays (Item 3.4)
+    const dsnAdvCost = getAdvLaborCost('design');
+    const decAdvCost = getAdvLaborCost('decals');
+    const finAdvCost = getAdvLaborCost('finishing');
+    const insAdvCost = getAdvLaborCost('installing');
+    const advLaborCost = decAdvCost + finAdvCost + insAdvCost;
+
+    // Ink cost
+    const standardInkCost = totalSqFt * 0.165;
+    const whiteInkCost = state.whiteInk ? totalSqFt * WHITE_INK_COST_PER_SQFT * (state.whiteInkPasses * WHITE_INK_PASS_MULTIPLIER) : 0;
+    const inkCost = standardInkCost + whiteInkCost;
+    const cutCost = cutHrs * 25;
+    // Design cost: auto sqft formula + advanced design labor
+    const dsnCost = (totalSqFt/25)*0.0625*60 + dsnAdvCost;
+    // Equipment + Operator = machine run time only (Item 3.1)
+    const equipCost = runHrs * 4.95;
+    const opCost = runHrs * 28;
+    let lamCost = 0;
+    if (state.lamination) lamCost = mat.type==='ROLL' ? totalLinFt*1.02 : totalSqFt*0.2267;
+
+    if (state.installation && state.installPayType==='sqft') {
+        document.getElementById('install-sqft-area').value = totalSqFt.toFixed(2);
+        const r = parseFloat(document.getElementById('install-sqft-rate').value)||3;
+        document.getElementById('install-sqft-total').value = (totalSqFt*r).toFixed(2);
+    }
+    const installCost = state.installation ? calcInstallCost(totalSqFt) : 0;
+
+    const totalCost = totalMatCost + inkCost + cutCost + dsnCost + equipCost + opCost + lamCost + installCost + advLaborCost;
+    const mg = Number(state.margin)||0;
+    const rawPrice = (mg>=0&&mg<100) ? totalCost/(1-mg/100) : totalCost;
+    const totalPrice = Math.ceil(rawPrice);
+    const totalQty = validItems.reduce((s,it)=>s+(Number(it.quantity)||0),0);
+    const unitPrice = totalQty>0 ? totalPrice/totalQty : 0;
+
+    state._lastItemPricing = getPerItemPricing(totalCost, totalPrice, validItems, totalSqFt);
+    state._lastTotalCost = totalCost;
+    state._lastTotalPrice = totalPrice;
+
+    document.getElementById('total-cost').textContent = fmt(totalCost);
+    document.getElementById('total-price').textContent = fmt(totalPrice);
+    document.getElementById('unit-price').textContent = fmt(unitPrice);
+    document.getElementById('total-sqft').textContent = totalSqFt>0 ? totalSqFt.toFixed(2)+' sqft' : '—';
+
+    if (mat.type==='ROLL') {
+        document.getElementById('usage-label').textContent = 'Linear Feet';
+        document.getElementById('usage-value').textContent = totalLinFt>0 ? (totalLinFt+2.5).toFixed(2)+' lf' : '—';
+    } else {
+        document.getElementById('usage-label').textContent = 'Sheets';
+        document.getElementById('usage-value').textContent = totalSheets>0 ? totalSheets+' sh' : '—';
+    }
+    const installRow = document.getElementById('installation-cost-row');
+    if (state.installation) { installRow.classList.remove('hidden'); document.getElementById('install-cost-display').textContent = fmt(installCost); }
+    else { installRow.classList.add('hidden'); }
+}
+
+function calcInstallCost(totalSqFt) {
+    if (state.installPayType==='sqft') { const r=parseFloat(document.getElementById('install-sqft-rate').value)||3; return totalSqFt*r; }
+    if (state.installPayType==='hourly') { const h=parseFloat(document.getElementById('install-hours').value)||0, r=parseFloat(document.getElementById('install-hourly-rate').value)||0, t=h*r; document.getElementById('install-hourly-total').value=t.toFixed(2); return t; }
+    if (state.installPayType==='flat') return parseFloat(document.getElementById('install-flat-total').value)||0;
+    return 0;
+}
+
+function resetCostsUI() {
+    ['total-cost','total-price','unit-price'].forEach(id=>document.getElementById(id).textContent='$0.00');
+    document.getElementById('usage-value').textContent='—';
+    document.getElementById('total-sqft').textContent='—';
+    state._lastItemPricing=[]; state._lastTotalCost=0; state._lastTotalPrice=0;
+}
+
+function updateInstallPayFields() {
+    const t = state.installPayType;
+    document.getElementById('install-sqft-fields').classList.toggle('hidden', t!=='sqft');
+    document.getElementById('install-hourly-fields').classList.toggle('hidden', t!=='hourly');
+    document.getElementById('install-flat-fields').classList.toggle('hidden', t!=='flat');
+}
+
+// ── COLLECT / RESET / POPULATE ──────────────────────────────────
+function collectFormData() {
+    const fd = {
+        description: state.description, materialName: state.materialName, margin: state.margin,
+        designerName: state.designerName, operatorName: state.operatorName,
+        isMultiItem: state.isMultiItem, trackQuantities: state.trackQuantities,
+        items: JSON.parse(JSON.stringify(state.items)),
+        complexShape: state.complexShape, doubleSided: state.doubleSided, lamination: state.lamination,
+        installation: state.installation, installPayType: state.installPayType,
+        installSqftRate: parseFloat(document.getElementById('install-sqft-rate').value)||3,
+        installHours: parseFloat(document.getElementById('install-hours').value)||0,
+        installHourlyRate: parseFloat(document.getElementById('install-hourly-rate').value)||0,
+        installFlatTotal: parseFloat(document.getElementById('install-flat-total').value)||0,
+        installInstallerName: document.getElementById('installer-select').value,
+        whiteInk: state.whiteInk, whiteInkPasses: state.whiteInkPasses,
+        advancedLabor: JSON.parse(JSON.stringify(state.advancedLabor)),
+    };
+    if (isEditMode && originalRowNumber) fd.originalRowNumber = originalRowNumber;
+    return fd;
+}
+
+function resetForm() {
+    const preserveTrackQty = state.trackQuantities;
+    Object.assign(state, {
+        materialName:'', description:'', margin:60, designerName:'', operatorName:'',
+        isMultiItem:false, trackQuantities:preserveTrackQty,
+        items:[{itemName:'',quantity:1,width:'',height:''}],
+        complexShape:false, doubleSided:false, lamination:false,
+        installation:false, installPayType:'sqft',
+        installSqftRate:3, installHours:'', installHourlyRate:'', installFlatTotal:'',
+        installInstallerName:'',
+        whiteInk:false, whiteInkPasses:1,
+        advancedLabor:{ design:[], decals:[], finishing:[], installing:[] },
+        _lastItemPricing:[], _lastTotalCost:0, _lastTotalPrice:0,
+    });
+    document.getElementById('description').value='';
+    document.getElementById('material').value='';
+    document.getElementById('margin').value='60';
+    document.getElementById('designer-select').value='';
+    document.getElementById('operator-select').value='';
+    ['complexShape','doubleSided','lamination'].forEach(id=>document.getElementById(id).checked=false);
+    document.getElementById('installation-checkbox').checked=false;
+    document.getElementById('installation-block').classList.add('hidden');
+    document.getElementById('installer-select').value='';
+    document.querySelector('input[name="pay-type"][value="sqft"]').checked=true;
+    updateInstallPayFields();
+    document.getElementById('install-sqft-rate').value='3.00';
+    ['install-hours','install-hourly-rate','install-flat-total'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('white-ink-checkbox').checked=false;
+    document.getElementById('white-ink-block').classList.add('hidden');
+    document.getElementById('white-ink-passes').value='1';
+    // Reset advanced labor UI
+    document.querySelectorAll('.adv-cb').forEach(cb => cb.checked=false);
+    document.querySelectorAll('.adv-entries').forEach(c => { c.innerHTML=''; c.classList.add('hidden'); });
+    document.querySelectorAll('.adv-add').forEach(b => b.classList.add('hidden'));
+    document.getElementById('track-qty-tog').classList.toggle('on', preserveTrackQty);
+    document.getElementById('track-qty-label').textContent = preserveTrackQty ? 'Tracking Quantities' : 'Track Quantities';
+    rebuildItemsUI();
+    resetCostsUI();
+}
+
+function populateFormData(fd) {
+    if (!fd) return;
+    Object.assign(state, {
+        description: fd.description||'', materialName: fd.materialName||'', margin: fd.margin??60,
+        designerName: fd.designerName||'', operatorName: fd.operatorName||'',
+        isMultiItem: !!fd.isMultiItem, trackQuantities: !!fd.trackQuantities,
+        complexShape: !!fd.complexShape, doubleSided: !!fd.doubleSided, lamination: !!fd.lamination,
+        installation: !!fd.installation, installPayType: fd.installPayType||'sqft',
+        whiteInk: !!fd.whiteInk, whiteInkPasses: fd.whiteInkPasses||1,
+        installInstallerName: fd.installInstallerName||'',
+    });
+    if (fd.items) state.items = JSON.parse(JSON.stringify(fd.items));
+
+    // Advanced labor: new structure or legacy fallback
+    if (fd.advancedLabor) {
+        state.advancedLabor = JSON.parse(JSON.stringify(fd.advancedLabor));
+    } else {
+        // Legacy flat field fallback
+        state.advancedLabor = { design:[], decals:[], finishing:[], installing:[] };
+        if (fd.designTime) state.advancedLabor.design.push({ name:'', qty:Number(fd.designTime)||0, unit:fd.designTimeUnit||'Minutes', rate:60 });
+        if (fd.laborDecalsTime) state.advancedLabor.decals.push({ name:'', qty:Number(fd.laborDecalsTime)||0, unit:fd.laborDecalsTimeUnit||'Minutes', rate:28 });
+        if (fd.laborFinishingTime) state.advancedLabor.finishing.push({ name:'', qty:Number(fd.laborFinishingTime)||0, unit:fd.laborFinishingTimeUnit||'Minutes', rate:28 });
+        if (fd.laborInstallingTime) state.advancedLabor.installing.push({ name:'', qty:Number(fd.laborInstallingTime)||0, unit:fd.laborInstallingTimeUnit||'Minutes', rate:28 });
+    }
+
+    document.getElementById('description').value = state.description;
+    document.getElementById('margin').value = state.margin;
+    document.getElementById('material').value = state.materialName;
+    document.getElementById('track-qty-tog').classList.toggle('on', state.trackQuantities);
+    document.getElementById('track-qty-label').textContent = state.trackQuantities ? 'Tracking Quantities' : 'Track Quantities';
+    ['complexShape','doubleSided','lamination'].forEach(id=>document.getElementById(id).checked=!!state[id]);
+
+    if (fd.installation) {
+        document.getElementById('installation-checkbox').checked=true;
+        document.getElementById('installation-block').classList.remove('hidden');
+        document.querySelector(`input[name="pay-type"][value="${state.installPayType}"]`).checked=true;
+        updateInstallPayFields();
+        if (fd.installSqftRate) document.getElementById('install-sqft-rate').value = fd.installSqftRate;
+        if (fd.installHours) document.getElementById('install-hours').value = fd.installHours;
+        if (fd.installHourlyRate) document.getElementById('install-hourly-rate').value = fd.installHourlyRate;
+        if (fd.installFlatTotal) document.getElementById('install-flat-total').value = fd.installFlatTotal;
+        // Installer name is set in getPersonnel callback (async fix - Item 4)
+    }
+    if (fd.whiteInk) {
+        document.getElementById('white-ink-checkbox').checked=true;
+        document.getElementById('white-ink-block').classList.remove('hidden');
+        document.getElementById('white-ink-passes').value = state.whiteInkPasses;
+    }
+
+    // Restore advanced labor UI
+    ['design','decals','finishing','installing'].forEach(key => {
+        const entries = state.advancedLabor[key] || [];
+        if (entries.length > 0) {
+            const cb = document.querySelector(`.adv-cb[data-adv-key="${key}"]`);
+            cb.checked = true;
+            const container = document.querySelector(`.adv-entries[data-adv-key="${key}"]`);
+            container.classList.remove('hidden');
+            document.querySelector(`.adv-add[data-adv-key="${key}"]`).classList.remove('hidden');
+            rebuildAdvEntries(key, entries);
+        }
+    });
+
+    rebuildItemsUI();
+    setTimeout(calculateEstimate, 100);
+}
+
+function sendDataToProject() {
+    if (!state.description) { alert('Please enter a description.'); return; }
+    const totalQty = state.items.reduce((s,it)=>s+(Number(it.quantity)||0),0);
+    if (totalQty<=0) { alert('Please enter a valid quantity.'); return; }
+    const totalPrice = parseFloat(document.getElementById('total-price').textContent.replace(/[^0-9.-]+/g,''))||0;
+    if (totalPrice<=0) { alert('Please configure your estimate to calculate a total price.'); return; }
+    const printingData = {
+        description: state.description, quantity:1, totalPrice,
+        isMultiItem: state.isMultiItem, trackQuantities: state.trackQuantities,
+        itemPricing: state._lastItemPricing || [],
+        formData: collectFormData(),
+        originalRowNumber: isEditMode ? originalRowNumber : null
+    };
+    const btn = document.getElementById('add-to-project-btn');
+    btn.disabled=true; const origText=btn.textContent;
+    btn.textContent=isEditMode?'Updating...':'Adding...'; btn.classList.add('opacity-50');
+    google.script.run
+        .withSuccessHandler(r=>{ btn.disabled=false; btn.textContent=origText; btn.classList.remove('opacity-50'); if(r.success){r.isUpdate?resetFormToNewMode():resetForm();}else{alert(`Error: ${r.message}`);} })
+        .withFailureHandler(e=>{ btn.disabled=false; btn.textContent=origText; btn.classList.remove('opacity-50'); console.error(e); alert('An error occurred.'); })
+        .addPrintingToProject(printingData);
+}
+
+function resetFormToNewMode() {
+    state.trackQuantities = false;
+    document.getElementById('track-qty-tog').classList.remove('on');
+    resetForm(); isEditMode=false; originalRowNumber=null;
+    document.getElementById('add-to-project-btn').textContent='Add to Project';
+    document.querySelector('h1').textContent='Printing Cost Calculator';
+}
+
+// ── DOM INIT ────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.editFormData) {
+        isEditMode=true;
+        originalRowNumber=window.editFormData.originalRowNumber;
+        document.getElementById('add-to-project-btn').textContent='Update Project';
+        document.querySelector('h1').textContent='Edit Printing Cost';
+    }
+
+    rebuildItemsUI();
+
+    // Track Qty toggle
+    const trackTog = document.getElementById('track-qty-tog');
+    const trackLabel = document.getElementById('track-qty-label');
+    function toggleTrackQty() {
+        if (isEditMode) return;
+        state.trackQuantities = !state.trackQuantities;
+        trackTog.classList.toggle('on', state.trackQuantities);
+        trackLabel.textContent = state.trackQuantities ? 'Tracking Quantities' : 'Track Quantities';
+    }
+    trackTog.addEventListener('click', toggleTrackQty);
+    trackLabel.addEventListener('click', toggleTrackQty);
+
+    // Load materials
+    google.script.run.withSuccessHandler(materials => {
+        state.materials = materials.map(m => ({
+            name:m[0], type:m[1], width:parseFloat(m[2]), height:parseFloat(m[3]),
+            costSheet:parseFloat(m[4]), costLinFt:parseFloat(m[5])
+        }));
+        const sel = document.getElementById('material');
+        sel.innerHTML = '<option value="">Select Material</option>';
+        state.materials.forEach(m => { const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; sel.appendChild(o); });
+        if (isEditMode && window.editFormData) {
+            sel.value = window.editFormData.materialName||'';
+            state.materialName = sel.value;
+        }
+    }).getPrintingMaterials();
+
+    // Load personnel — populate Designer, Operator, Installer, Advanced Labor dropdowns
+    // Item 4 async fix: restore installer/designer/operator AFTER options exist
+    google.script.run.withSuccessHandler(personnel => {
+        state.personnel = personnel;
+
+        // Designer dropdown (skill: Design Labor)
+        const dsnSel = document.getElementById('designer-select');
+        dsnSel.innerHTML = buildPersonnelOpts('design labor');
+
+        // Operator dropdown (skill: Printing Labor OR Operator)
+        const opSel = document.getElementById('operator-select');
+        opSel.innerHTML = buildPersonnelOpts(['printing labor','operator']);
+
+        // Installer dropdown (skill: Vinyl Installer)
+        const instSel = document.getElementById('installer-select');
+        instSel.innerHTML = '<option value="">Select Installer</option>';
+        personnel.forEach(p => {
+            const skills = (p[4]||'').toLowerCase();
+            if (skills.includes('vinyl installer')) {
+                const fn = `${p[0]} ${p[1]}`.trim();
+                const o = document.createElement('option');
+                o.value = fn; o.textContent = fn; o.dataset.hourlyRate = p[2]||0;
+                instSel.appendChild(o);
+            }
+        });
+
+        // Rebuild advanced labor dropdowns now that personnel data is available
+        ['design','decals','finishing','installing'].forEach(key => {
+            const entries = state.advancedLabor[key] || [];
+            if (entries.length > 0) rebuildAdvEntries(key, entries);
+        });
+
+        // Item 4 async fix: restore values AFTER dropdown options exist
+        if (isEditMode && window.editFormData) {
+            const fd = window.editFormData;
+            if (fd.designerName) { dsnSel.value = fd.designerName; state.designerName = fd.designerName; }
+            if (fd.operatorName) { opSel.value = fd.operatorName; state.operatorName = fd.operatorName; }
+            if (fd.installInstallerName) { instSel.value = fd.installInstallerName; state.installInstallerName = fd.installInstallerName; }
+            populateFormData(fd);
+            window.editFormData = null;
+        }
+    }).getPersonnel();
+
+    // Basic field listeners
+    document.getElementById('description').addEventListener('input', e => { state.description=e.target.value; });
+    document.getElementById('material').addEventListener('change', e => { state.materialName=e.target.value; calculateEstimate(); });
+    document.getElementById('margin').addEventListener('input', e => { state.margin=e.target.value; calculateEstimate(); });
+    document.getElementById('designer-select').addEventListener('change', e => { state.designerName=e.target.value; });
+    document.getElementById('operator-select').addEventListener('change', e => { state.operatorName=e.target.value; });
+    ['complexShape','doubleSided','lamination'].forEach(id => {
+        document.getElementById(id).addEventListener('change', e => { state[id]=e.target.checked; calculateEstimate(); });
+    });
+
+    // +Add Item
+    document.getElementById('add-item-btn').addEventListener('click', () => {
+        if (isEditMode) return;
+        state.isMultiItem=true;
+        state.items.push({itemName:'',quantity:1,width:'',height:''});
+        rebuildItemsUI(); calculateEstimate();
+    });
+
+    // Installation
+    document.getElementById('installation-checkbox').addEventListener('change', function() {
+        state.installation=this.checked;
+        document.getElementById('installation-block').classList.toggle('hidden',!this.checked);
+        calculateEstimate();
+    });
+    document.querySelectorAll('input[name="pay-type"]').forEach(r => {
+        r.addEventListener('change', e => { state.installPayType=e.target.value; updateInstallPayFields(); calculateEstimate(); });
+    });
+    ['install-sqft-rate','install-hours','install-hourly-rate','install-flat-total'].forEach(id => {
+        document.getElementById(id).addEventListener('input', ()=>calculateEstimate());
+    });
+    document.getElementById('installer-select').addEventListener('change', e => {
+        state.installInstallerName=e.target.value;
+        const opt=e.target.selectedOptions[0];
+        if (opt&&opt.dataset.hourlyRate&&state.installPayType==='hourly') {
+            document.getElementById('install-hourly-rate').value=opt.dataset.hourlyRate;
+            calculateEstimate();
+        }
+    });
+
+    // White Ink
+    document.getElementById('white-ink-checkbox').addEventListener('change', function() {
+        state.whiteInk=this.checked;
+        document.getElementById('white-ink-block').classList.toggle('hidden',!this.checked);
+        if (!this.checked) { state.whiteInkPasses=1; document.getElementById('white-ink-passes').value='1'; }
+        calculateEstimate();
+    });
+    document.getElementById('white-ink-passes').addEventListener('change', e => {
+        state.whiteInkPasses=parseInt(e.target.value)||1; calculateEstimate();
+    });
+
+    // Advanced Labor checkboxes + Add buttons (Item 2.2)
+    document.querySelectorAll('.adv-cb').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const key = this.dataset.advKey;
+            const container = document.querySelector(`.adv-entries[data-adv-key="${key}"]`);
+            const addBtn = document.querySelector(`.adv-add[data-adv-key="${key}"]`);
+            if (this.checked) {
+                container.classList.remove('hidden');
+                addBtn.classList.remove('hidden');
+                if (container.children.length === 0) {
+                    container.appendChild(buildAdvEntry(key, null));
+                }
+            } else {
+                container.classList.add('hidden');
+                addBtn.classList.add('hidden');
+                container.innerHTML = '';
+                state.advancedLabor[key] = [];
+            }
+            calculateEstimate();
+        });
+    });
+    document.querySelectorAll('.adv-add').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const key = this.dataset.advKey;
+            const container = document.querySelector(`.adv-entries[data-adv-key="${key}"]`);
+            container.appendChild(buildAdvEntry(key, null));
+        });
+    });
+
+    // Drawer
+    document.getElementById('drawer-trigger').addEventListener('click', () => document.getElementById('advanced-drawer').classList.remove('translate-x-full'));
+    document.getElementById('close-drawer-btn').addEventListener('click', () => document.getElementById('advanced-drawer').classList.add('translate-x-full'));
+
+    document.getElementById('reset-btn').addEventListener('click', isEditMode ? resetFormToNewMode : resetForm);
+    document.getElementById('add-to-project-btn').addEventListener('click', sendDataToProject);
+});
+</script>
+</body>
+</html>
