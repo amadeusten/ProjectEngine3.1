@@ -25,13 +25,11 @@ const materialsSheet = {
     if (!sheet) return [];
     const range = sheet.getRange('A2:P' + sheet.getLastRow());
     const values = range.getValues();
-
     const filteredValues = values.filter(row => {
       const name = row[1];
       const primaryCategory = row[4];
       return name && name.toString().trim() !== "" && primaryCategory && primaryCategory.toString().toUpperCase().includes(category);
     });
-
     if (category.includes('PRINT')) {
       return filteredValues.map(row => {
         const name = row[1].toString().trim();
@@ -406,7 +404,7 @@ const projectSheet = {
    * Removes all child rows belonging to a parent block.
    * Primary: Scans Column G notes for `ParentLogID: <parentLogId>`.
    * Fallback: If no notes matched (or no parentLogId), removes consecutive
-   *           blank-Column-B rows immediately below the header.
+   * blank-Column-B rows immediately below the header.
    * Deletes from bottom up to avoid index shifting.
    */
   _cleanupChildRows: function(sheet, parentRowNum, parentLogId) {
@@ -418,7 +416,6 @@ const projectSheet = {
     const colBValues = sheet.getRange(parentRowNum + 1, 2, numRowsBelow, 1).getValues();
 
     const rowsToDelete = [];
-
     // Primary: match by ParentLogID note
     if (parentLogId) {
       for (let i = 0; i < notes.length; i++) {
@@ -456,7 +453,6 @@ const projectSheet = {
       }
 
       const { description, quantity, dimensions, totalPrice, formData, originalRowNumber } = itemData;
-
       // Blueprint #1: Try LogID-based lookup first, fall back to stored row number
       let rowNum = null;
       const storedLogId = formData && formData.logId ? formData.logId : null;
@@ -477,7 +473,6 @@ const projectSheet = {
       }
 
       const logId = this.updateLogFormData(formData, rowNum, logIdPrefix, logSheetName);
-
       if (logIdPrefix === 'FAB') {
         const existingId = sheet.getRange(rowNum, 2).getValue() || this.getNextFabricationId();
         sheet.getRange(rowNum, 1, 1, 6).setValues([[
@@ -495,14 +490,12 @@ const projectSheet = {
         sheet.getRange(rowNum, 5).setNumberFormat('$#,##0.00');
         sheet.getRange(rowNum, 6).setNumberFormat('$#,##0.00');
         if (logId) this._styleEditCell(sheet.getRange(rowNum, 7), logId, false, true);
-
       } else if (logIdPrefix === 'PRT') {
         // Blueprint #3: Multi-item PRT update with child row cleanup
         const existingId = sheet.getRange(rowNum, 2).getValue() || this.getNextPrintingId();
 
         // Always clean up old child rows before rewriting
         this._cleanupChildRows(sheet, rowNum, storedLogId);
-
         // Write using multi-item scenarios
         this._writePrtRows(sheet, rowNum, existingId, itemData, logId, true);
       }
@@ -514,7 +507,6 @@ const projectSheet = {
         logId: logId,
         isUpdate: true
       };
-
     } catch (error) {
       console.error('Error updating project item:', error);
       return { success: false, message: `Error updating item: ${error.message}`, rowNumber: null, logId: null, isUpdate: false };
@@ -545,7 +537,6 @@ const projectSheet = {
       const nextRow = lastRow + 1;
 
       const logId = this.logFormData(formData, nextRow, logIdPrefix, logSheetName);
-
       if (logIdPrefix === 'FAB') {
         const fabricationId = this.getNextFabricationId();
         sheet.getRange(nextRow, 1, 1, 7).setValues([[
@@ -563,7 +554,6 @@ const projectSheet = {
         sheet.getRange(nextRow, 5).setNumberFormat('$#,##0.00');
         sheet.getRange(nextRow, 6).setNumberFormat('$#,##0.00');
         if (logId) this._styleEditCell(sheet.getRange(nextRow, 7), logId, false, false);
-
       } else if (logIdPrefix === 'PRT') {
         // Blueprint #3: Multi-item PRT writing
         const printingId = this.getNextPrintingId();
@@ -577,7 +567,6 @@ const projectSheet = {
         logId: logId,
         isUpdate: false
       };
-
     } catch (error) {
       console.error('Error adding project item:', error);
       return { success: false, message: `Error adding item: ${error.message}`, rowNumber: null, logId: null, isUpdate: false };
@@ -587,9 +576,9 @@ const projectSheet = {
   // ── Blueprint #3: PRT Multi-Item Sheet Writer ─────────────────
   /**
    * Writes PRT rows to the sheet based on three scenarios:
-   *   1. Single item: Description + dimensions, Qty, Unit Price, Total — no child rows
-   *   2. Multi + Track Quantities ON: Header (description bold, no prices), children (name+dims, Qty, Unit Price, Total)
-   *   3. Multi + Track Quantities OFF: Header (description bold, Total Qty, Grand Total), children (name+dims, Qty only)
+   * 1. Single item: Description + dimensions, Qty, Unit Price, Total — no child rows
+   * 2. Multi + Track Quantities ON: Header (description bold, no prices), children (name+dims, Qty, Unit Price, Total)
+   * 3. Multi + Track Quantities OFF: Header (description bold, Total Qty, Grand Total), children (name+dims, Qty only)
    *
    * @param {Sheet} sheet - The active project sheet
    * @param {number} headerRow - Row number for the header/only row
@@ -613,14 +602,12 @@ const projectSheet = {
       const dims = (item.width && item.height) ? `${item.width}" × ${item.height}"` : '';
       const descWithDims = dims ? `${description || ''} — ${dims}` : (description || '');
       const unitPrice = qty > 0 ? (totalPrice / qty) : 0;
-
       sheet.getRange(headerRow, 1, 1, 7).setValues([[
         '', printingId, descWithDims, qty, unitPrice, totalPrice || 0, ''
       ]]);
       sheet.getRange(headerRow, 5).setNumberFormat('$#,##0.00');
       sheet.getRange(headerRow, 6).setNumberFormat('$#,##0.00');
       if (logId) this._styleEditCell(sheet.getRange(headerRow, 7), logId, false, isUpdate);
-
     } else if (trackQuantities) {
       // ── Scenario 2: Multi + Track Quantities ON ──
       // Header row: Description bold, no prices (child rows carry qty, rate, total)
@@ -640,12 +627,10 @@ const projectSheet = {
           const dims = (item.width && item.height) ? `${item.width}" × ${item.height}"` : '';
           const childDesc = item.itemName ? `${item.itemName} — ${dims}` : dims;
           const qty = Number(item.quantity) || 0;
-
           // Get per-item pricing from top-level payload
           const pricing = itemPricing[i] || {};
           const childUnitPrice = pricing.unitPrice || 0;
           const childTotal = pricing.total || 0;
-
           sheet.getRange(childRow, 1, 1, 7).setValues([[
             '', '', `    ${childDesc}`, qty, childUnitPrice, childTotal, ''
           ]]);
@@ -662,14 +647,12 @@ const projectSheet = {
       // ── Scenario 3: Multi + Track Quantities OFF ──
       // Header row: Description bold, Total Qty, Grand Total
       const totalQty = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
-
       sheet.getRange(headerRow, 1, 1, 7).setValues([[
         '', printingId, description || '', totalQty, '', totalPrice || 0, ''
       ]]);
       sheet.getRange(headerRow, 3).setFontWeight('bold');
       sheet.getRange(headerRow, 6).setNumberFormat('$#,##0.00');
       if (logId) this._styleEditCell(sheet.getRange(headerRow, 7), logId, true, isUpdate);
-
       // Insert child rows below header — Qty only, no prices
       const childCount = items.length;
       if (childCount > 0) {
@@ -680,7 +663,6 @@ const projectSheet = {
           const dims = (item.width && item.height) ? `${item.width}" × ${item.height}"` : '';
           const childDesc = item.itemName ? `${item.itemName} — ${dims}` : dims;
           const qty = Number(item.quantity) || 0;
-
           sheet.getRange(childRow, 1, 1, 7).setValues([[
             '', '', `    ${childDesc}`, qty, '', '', ''
           ]]);
@@ -749,7 +731,6 @@ const nichDocs = {
 
       this.writeRevenueToPL(plSheet, revenueData);
       this.writeCostsToPL(plSheet, costData);
-
       SpreadsheetApp.getUi().alert('Profit & Loss data updated successfully!');
     } catch (error) {
       console.error('Error creating Profit & Loss:', error);
@@ -769,7 +750,6 @@ const nichDocs = {
       const totalPrice = parseFloat(data[i][4]) || 0;
       // Skip blank or non-string IDs (child rows)
       if (!id || typeof id !== 'string') continue;
-
       if (totalPrice > 0) {
         // Header row has a total — use it directly
         if (id.startsWith('PR')) revenueData.printing += totalPrice;
@@ -804,14 +784,22 @@ const nichDocs = {
     plSheet.getRange(3, 7).setValue(costData.printing.materials);
     plSheet.getRange(4, 7).setValue(costData.printing.ink);
     plSheet.getRange(5, 7).setValue(costData.printing.equipment);
-    plSheet.getRange(6, 7).setValue(costData.printing.operator);
-    plSheet.getRange(7, 7).setValue(costData.printing.design);
+    
+    // Sum Printing Operator + Printing Installation + Printing Design into G6
+    const totalPrintingLabor = costData.printing.operator + costData.printing.design;
+    plSheet.getRange(6, 7).setValue(totalPrintingLabor);
+    
+    // Clear out the separate Design labor cell to prevent double counting
+    plSheet.getRange(7, 7).setValue('');
+
+    // Leave Fabrication and Apparel exactly as they are
     plSheet.getRange(11, 7).setValue(costData.fabrication.materials);
     plSheet.getRange(12, 7).setValue(costData.fabrication.labor);
     plSheet.getRange(13, 7).setValue(costData.fabrication.components);
     plSheet.getRange(17, 7).setValue(costData.apparel.garments);
     plSheet.getRange(18, 7).setValue(costData.apparel.printing);
     plSheet.getRange(19, 7).setValue(costData.apparel.labor);
+    
     [plSheet.getRange(3,7,5,1), plSheet.getRange(11,7,3,1), plSheet.getRange(17,7,3,1)].forEach(r => r.setNumberFormat('$#,##0.00'));
   },
 
@@ -826,7 +814,7 @@ const nichDocs = {
     costData.printing.ink = printingCosts.inkCost;
     costData.printing.equipment = printingCosts.cuttingCost + printingCosts.equipmentCost;
     costData.printing.design = printingCosts.designCost;
-    costData.printing.operator = printingCosts.operatorCost + (printingCosts.decalsCost||0) + (printingCosts.finishingCost||0) + (printingCosts.installingCost||0);
+    costData.printing.operator = printingCosts.operatorCost + (printingCosts.decalsCost||0) + (printingCosts.finishingCost||0) + (printingCosts.installingCost||0) + (printingCosts.installationCost||0);
 
     const fabricationCosts = this.getFabricationCosts();
     costData.fabrication.materials = fabricationCosts.materialTotal;
@@ -876,7 +864,6 @@ const nichDocs = {
 
     const material = this.getMaterialByName(materialName);
     if (!material) return costs;
-
     // Build items list: use formData.items[] if available, fall back to top-level fields
     let items = [];
     if (formData.items && Array.isArray(formData.items) && formData.items.length > 0) {
@@ -889,13 +876,11 @@ const nichDocs = {
     const bleed = 0.25, spacing = 0.25;
     let totalLinearFeet = 0, totalMatCost = 0;
     let totalSqFt = 0, totalPerimeter = 0;
-
     // Iterate over items (mirrors PrintingIndex.html calculateEstimate)
     for (const item of items) {
       const qty = Number(item.quantity);
       const aw = Number(item.width), ah = Number(item.height);
       const artW = aw + bleed, artH = ah + bleed;
-
       if (material.type === 'ROLL') {
         const rw = material.width;
         if (artW > rw && artH > rw) continue;
@@ -936,7 +921,6 @@ const nichDocs = {
     if (formData.complexShape) cutTimeHours *= 1.5;
     const ripTimeHours = (totalSqFt / 20.52) / 60;
     const printComputeTimeHours = (totalSqFt / 6.2) / 60;
-
     // White Ink print time
     const WI_SPEED_BASE = 0.75, WI_SPEED_DECAY = 0.80, WI_COST_SQFT = 0.198, WI_PASS_MULT = 1;
     let whiteInkPrintHours = 0;
@@ -947,7 +931,6 @@ const nichDocs = {
     }
 
     const totalProjectRunTimeHours = printTimeHours + whiteInkPrintHours + cutTimeHours + ripTimeHours + printComputeTimeHours;
-
     // Advanced labor: read structured arrays with legacy fallback (Item 3.2)
     let dsnLaborHrs=0, decLaborHrs=0, finLaborHrs=0, insLaborHrs=0;
     let dsnLaborCost=0, decLaborCost=0, finLaborCost=0, insLaborCost=0;
@@ -989,8 +972,19 @@ const nichDocs = {
     costs.decalsCost = decLaborCost;
     costs.finishingCost = finLaborCost;
     costs.installingCost = insLaborCost;
+    
     // Installation cost (Additional Options checkbox, not Advanced Drawer)
-    costs.installationCost = 0; // Populated by budget collector from formData directly
+    costs.installationCost = 0;
+    if (formData.installation) {
+      const payType = formData.installPayType || 'sqft';
+      if (payType === 'hourly') {
+        costs.installationCost = (Number(formData.installHours)||0) * (Number(formData.installHourlyRate)||0);
+      } else if (payType === 'flat') {
+        costs.installationCost = Number(formData.installFlatTotal)||0;
+      } else {
+        costs.installationCost = (Number(formData.installSqftArea || totalSqFt)||0) * (Number(formData.installSqftRate)||3);
+      }
+    }
     return costs;
   },
 
@@ -1085,14 +1079,11 @@ const nichDocs = {
     const quantity = Number(formData.quantity) || 0;
     const garmentUnitCost = Number(formData.garmentUnitCost) || 0;
     costs.garmentTotal = quantity * garmentUnitCost;
-
     const frontColors = Number(formData.frontColors) || 0;
     const backColors = Number(formData.backColors) || 0;
     let totalColors = frontColors + backColors;
-
     if (frontColors > 0) costs.totalPrintCosts += this._calculateLocationCost(frontColors, quantity, 'front');
     if (backColors > 0) costs.totalPrintCosts += this._calculateLocationCost(backColors, quantity, 'back');
-
     if (formData.additionalLocations && Array.isArray(formData.additionalLocations)) {
       formData.additionalLocations.forEach(loc => {
         const locColors = Number(loc.colors) || 0;
@@ -1114,7 +1105,6 @@ const nichDocs = {
       if (opts.metallicShimmer) costs.additionalOptionsCosts += constants.metallicShimmerInk * quantity;
       if (opts.glow) costs.additionalOptionsCosts += constants.glow * quantity;
       if (opts.fleece) costs.additionalOptionsCosts += constants.fleece * quantity;
-
       // Design Labor — separate field, NOT added to additionalOptionsCosts (Item 3.3)
       if (opts.designLabor) {
         if (opts.designLabor.entries && Array.isArray(opts.designLabor.entries)) {
@@ -1274,7 +1264,6 @@ const nichDocs = {
     if (items.length === 0) return null;
 
     const bleed = 0.25, spacing = 0.25;
-
     // Find material in Materials sheet
     const lastRow = matSheet.getLastRow();
     const materialsData = matSheet.getRange('A2:P' + lastRow).getValues();
@@ -1291,7 +1280,6 @@ const nichDocs = {
 
     let totalQuantity = 0;
     let unitOfMeasure = '';
-
     if (materialType === 'ROLL') {
       let totalLinFt = 0;
       const rw = materialWidth;
@@ -1522,7 +1510,7 @@ const nichDocs = {
 
     // Cross-app personnel consolidation (Option B — blended rate)
     // One row per person regardless of which app/category they came from
-    const PERSONNEL_SUBCATS = new Set(['Personnel','Design','Operator','Printing Labor','Print Installation']);
+    const PERSONNEL_SUBCATS = new Set(['Personnel','Design','Operator','Printing Labor']);
     const nonPersonnel = [];
     const personMap = new Map(); // key = person name, value = {qty, total, categories[]}
 
@@ -1602,6 +1590,7 @@ const nichDocs = {
     const logSheet = spreadsheet.getSheetByName('FabricationLog');
     const result = { materials: [], personnel: [], components: [], delivery: [] };
     if (!logSheet) return result;
+
     const matMap = new Map(), perMap = new Map(), comMap = new Map(), delMap = new Map();
     const values = logSheet.getDataRange().getValues();
     for (let i = 1; i < values.length; i++) {
@@ -1609,6 +1598,7 @@ const nichDocs = {
       if (!json) continue;
       try {
         const fd = JSON.parse(json);
+
         if (fd.materials && Array.isArray(fd.materials)) {
           fd.materials.forEach(m => {
             const key = m.name, qty = Number(m.quantity)||0, tot = Number(m.total)||(qty*(Number(m.unitCost)||0));
@@ -1662,9 +1652,9 @@ const nichDocs = {
     let cuttingHrs=0, equipHrs=0, totalLinFt=0, totalSqFt=0, hasRoll=false;
     const designMap=new Map(), decalsMap=new Map(), finishingMap=new Map(), installingMap=new Map();
     const printInstallMap=new Map();
-    // Designer/Operator dropdown assignments — accumulate per person
-    const assignedDesignerMap=new Map(); // auto-calc design hours attributed to Designer dropdown
-    const assignedOperatorMap=new Map(); // machine run hours attributed to Operator dropdown
+    const assignedDesignerMap=new Map();
+    const assignedOperatorMap=new Map();
+    
     const values = logSheet.getDataRange().getValues();
     for (let i = 1; i < values.length; i++) {
       const json = values[i][3];
@@ -1679,22 +1669,31 @@ const nichDocs = {
         equipTotal += costs.equipmentCost||0;
         cuttingHrs += costs.cuttingCost>0 ? costs.cuttingCost/25 : 0;
         equipHrs += costs.equipmentCost>0 ? costs.equipmentCost/4.95 : 0;
+        
+        let itemSqFtSum = 0; // Track SqFt accurately for this specific log entry
+        
         const mat = this.getMaterialByName(fd.materialName||'');
         if (mat) {
           const items = (fd.items && fd.items.length) ? fd.items : [{quantity:fd.quantity, width:fd.width, height:fd.height}];
           items.forEach(it => {
             const qty=Number(it.quantity)||0, aw=(Number(it.width)||0)+0.25, ah=(Number(it.height)||0)+0.25;
+            
+            // Fix: Calculate Square Footage for ALL items, including rolls
+            let sqft = (aw * ah / 144) * qty;
+            if (fd.doubleSided) sqft *= 2;
+            itemSqFtSum += sqft;
+            totalSqFt += sqft;
+
             if (mat.type==='ROLL') {
               hasRoll=true;
               const rw=mat.width, sp=0.25;
               const cP=Math.floor((rw+sp)/(aw+sp)), cL=Math.floor((rw+sp)/(ah+sp));
               const cols=Math.max(cP,cL,1), rowH=cL>cP?aw:ah;
               totalLinFt += ((Math.ceil(qty/cols)*rowH)+((Math.ceil(qty/cols)-1)*sp))/12;
-            } else {
-              totalSqFt += (aw*ah/144)*qty;
             }
           });
         }
+        
         const adv = fd.advancedLabor || {};
         const accumLabor = (map, entries, defaultRate) => {
           if (!entries || !Array.isArray(entries)) return;
@@ -1710,7 +1709,7 @@ const nichDocs = {
         accumLabor(decalsMap, adv.decals, 28);
         accumLabor(finishingMap, adv.finishing, 28);
         accumLabor(installingMap, adv.installing, 28);
-        // Designer: auto-calculated design time attributed to selected designer
+        
         const dsnName = fd.designerName || '';
         if (dsnName) {
           let advDsnCost = 0;
@@ -1722,7 +1721,7 @@ const nichDocs = {
             else { assignedDesignerMap.set(dsnName, {qty:autoDesignHrs, total:autoDesignCost, rate:60}); }
           }
         }
-        // Operator: machine run time attributed to selected operator
+        
         const opName = fd.operatorName || '';
         if (opName) {
           const runHrs = (costs.equipmentCost||0) / 4.95;
@@ -1732,41 +1731,80 @@ const nichDocs = {
             else { assignedOperatorMap.set(opName, {qty:runHrs, total:opCost, rate:28}); }
           }
         }
+        
+        // --- PRINTING INSTALLATION EXTRACTION ---
         if (fd.installation) {
-          const name=fd.installInstallerName||'Installer', payType=fd.installPayType||'sqft';
-          let iQty=0, iRate=0, iUom='Sq Ft', iTot=0;
-          if (payType==='hourly') { iQty=Number(fd.installHours)||0; iRate=Number(fd.installHourlyRate)||0; iUom='Hours'; iTot=iQty*iRate; }
-          else if (payType==='flat') { iQty=1; iRate=Number(fd.installFlatTotal)||0; iUom='Flat'; iTot=iRate; }
-          else { iQty=Number(fd.installSqftArea||totalSqFt)||0; iRate=Number(fd.installSqftRate)||3; iUom='Sq Ft'; iTot=iQty*iRate; }
-          if (iTot>0) {
-            if (printInstallMap.has(name)) { const r=printInstallMap.get(name); r.qty+=iQty; r.total+=iTot; }
-            else { printInstallMap.set(name, {qty:iQty, uom:iUom, rate:iRate, total:iTot}); }
+          const name = fd.installInstallerName || 'Installer';
+          const payType = fd.installPayType || 'sqft';
+          let iQty = 0, iRate = 0, iUom = 'SqFt', iTot = 0;
+
+          if (payType === 'hourly') { 
+            iQty = Number(fd.installHours) || 0; 
+            iRate = Number(fd.installHourlyRate) || 0; 
+            iUom = 'Hours'; 
+            iTot = iQty * iRate;
+          } else if (payType === 'flat') { 
+            iQty = 1; 
+            iRate = Number(fd.installFlatTotal) || 0; 
+            iUom = 'Flat Rate'; 
+            iTot = iRate;
+          } else { 
+            // Square footage fallback
+            iQty = Number(itemSqFtSum) || 0; // uses the entry's sqft
+            iRate = Number(fd.installSqftRate) || 3; 
+            iUom = 'SqFt'; 
+            iTot = iQty * iRate;
+          }
+          
+          if (iTot > 0 || iQty > 0 || iRate > 0) {
+            const mapKey = name + '_' + iUom;
+            if (printInstallMap.has(mapKey)) { 
+              const r = printInstallMap.get(mapKey);
+              r.qty += iQty; 
+              r.total += iTot; 
+            } else { 
+              printInstallMap.set(mapKey, {name: name, qty: iQty, uom: iUom, rate: iRate, total: iTot});
+            }
           }
         }
+        
       } catch(e) { console.error('Budget – PrintingLog parse error:', e); }
     }
+    
     const mediaQty=hasRoll?Math.round((totalLinFt+2.5)*100)/100:Math.round(totalSqFt*100)/100;
     const mediaUom=hasRoll?'Lin Ft':'Sq Ft';
     const mediaRate=mediaQty>0?mediaTotal/mediaQty:0;
     const inkQty=Math.round(totalSqFt*100)/100;
+    
     const rows=[];
     if (mediaTotal>0) rows.push({category:'Printing',subcategory:'Material',item:'Print Media',qty:mediaQty,uom:mediaUom,rate:mediaRate,estimatedTotal:mediaTotal});
     if (lamTotal>0) rows.push({category:'Printing',subcategory:'Material',item:'Lamination',qty:mediaQty,uom:mediaUom,rate:mediaQty>0?lamTotal/mediaQty:0,estimatedTotal:lamTotal});
     if (inkTotal>0) rows.push({category:'Printing',subcategory:'Consumables',item:'Ink',qty:inkQty,uom:'Sq Ft',rate:0.165,estimatedTotal:inkTotal});
     if (cuttingTotal>0) rows.push({category:'Printing',subcategory:'Cutting',item:'Cutting / Finishing',qty:Math.round(cuttingHrs*100)/100,uom:'Hours',rate:25,estimatedTotal:cuttingTotal});
     if (equipTotal>0) rows.push({category:'Printing',subcategory:'Equipment',item:'Printer / RIP Time',qty:Math.round(equipHrs*100)/100,uom:'Hours',rate:4.95,estimatedTotal:equipTotal});
-    // Consolidate assigned designer into designMap (avoid duplicate rows for same person)
+    
     assignedDesignerMap.forEach((r,name) => {
       if (designMap.has(name)) { const d=designMap.get(name); d.qty+=r.qty; d.total+=r.total; }
       else { designMap.set(name, {qty:r.qty, total:r.total, rate:r.rate}); }
     });
+    
     designMap.forEach((r,name) => rows.push({category:'Printing',subcategory:'Design',item:name,qty:Math.round(r.qty*100)/100,uom:'Hours',rate:r.qty>0?r.total/r.qty:r.rate,estimatedTotal:r.total}));
     decalsMap.forEach((r,name) => rows.push({category:'Printing',subcategory:'Printing Labor',item:name,qty:Math.round(r.qty*100)/100,uom:'Hours',rate:r.qty>0?r.total/r.qty:r.rate,estimatedTotal:r.total}));
     finishingMap.forEach((r,name) => rows.push({category:'Printing',subcategory:'Printing Labor',item:name,qty:Math.round(r.qty*100)/100,uom:'Hours',rate:r.qty>0?r.total/r.qty:r.rate,estimatedTotal:r.total}));
     installingMap.forEach((r,name) => rows.push({category:'Printing',subcategory:'Printing Labor',item:name,qty:Math.round(r.qty*100)/100,uom:'Hours',rate:r.qty>0?r.total/r.qty:r.rate,estimatedTotal:r.total}));
-    // Assigned Operator (machine run time hours)
     assignedOperatorMap.forEach((r,name) => rows.push({category:'Printing',subcategory:'Operator',item:name,qty:Math.round(r.qty*100)/100,uom:'Hours',rate:r.qty>0?r.total/r.qty:r.rate,estimatedTotal:r.total}));
-    printInstallMap.forEach((r,name) => rows.push({category:'Printing',subcategory:'Print Installation',item:name,qty:r.qty,uom:r.uom,rate:r.rate,estimatedTotal:r.total}));
+    
+    // --- OUTPUT INSTALLATION ROW ---
+    printInstallMap.forEach(r => rows.push({
+      category: 'Printing',
+      subcategory: 'Print Installation',
+      item: r.name,
+      qty: Math.round(r.qty * 100) / 100,
+      uom: r.uom,
+      rate: r.qty > 0 && r.uom !== 'Flat Rate' ? r.total / r.qty : r.rate,
+      estimatedTotal: r.total
+    }));
+    
     return rows;
   },
 
@@ -1774,6 +1812,7 @@ const nichDocs = {
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     const logSheet = spreadsheet.getSheetByName('ApparelLog');
     if (!logSheet) return [];
+
     const garmentMap=new Map(), designMap=new Map();
     let printInkTotal=0, screenTotal=0, screenQty=0, optionsTotal=0, totalQty=0;
     const values = logSheet.getDataRange().getValues();
@@ -1783,6 +1822,7 @@ const nichDocs = {
       try {
         const fd = JSON.parse(json);
         const calc = this.calculateApparelCosts(fd);
+
         const qty = Number(fd.quantity)||0;
         const garment = fd.garment||'Garment';
         if (qty>0) {
@@ -1794,6 +1834,7 @@ const nichDocs = {
         screenTotal += calc.screenSetupCosts||0;
         screenQty += calc.screenSetupCosts>0 ? Math.round(calc.screenSetupCosts/13) : 0;
         optionsTotal += calc.additionalOptionsCosts||0;
+
         const dlEntries = fd.additionalOptions && fd.additionalOptions.designLabor && fd.additionalOptions.designLabor.entries;
         if (dlEntries && Array.isArray(dlEntries)) {
           dlEntries.forEach(e => {
@@ -1837,6 +1878,7 @@ function onOpen() {
     .addItem('Edit Selected Item', 'editSelectedItem')
     .addItem('Delete Selected Block', 'deleteSelectedBlock')
     .addToUi();
+
   ui.createMenu('NICH Docs')
     .addItem('Create Estimate', 'createEstimate')
     .addItem('Create Invoice', 'createInvoice')
@@ -1885,6 +1927,7 @@ function editSelectedItem() {
   try {
     const sheet = SpreadsheetApp.getActiveSheet();
     const activeCell = sheet.getActiveCell();
+
     if (activeCell.getColumn() !== 7) {
       SpreadsheetApp.getUi().alert('Edit Item', 'Please select an "Edit" cell first, then try again.', SpreadsheetApp.getUi().ButtonSet.OK);
       return;
@@ -1947,7 +1990,6 @@ function deleteSelectedBlock() {
 
     const logId = logIdMatch[1].trim();
     const headerRow = activeCell.getRow();
-
     // Get description for confirmation
     const description = sheet.getRange(headerRow, 3).getValue() || 'this item';
 
@@ -1957,7 +1999,6 @@ function deleteSelectedBlock() {
       `Are you sure you want to delete "${description}" and all its child rows?\n\nThis cannot be undone.`,
       ui.ButtonSet.YES_NO
     );
-
     if (response !== ui.Button.YES) return;
 
     // Find child rows by scanning for ParentLogID notes below the header
@@ -2003,7 +2044,6 @@ function deleteSelectedBlock() {
     }
 
     ui.alert('Delete Block', `"${description}" has been deleted.`, ui.ButtonSet.OK);
-
   } catch (error) {
     console.error('Error in deleteSelectedBlock:', error);
     SpreadsheetApp.getUi().alert('Error', 'An error occurred while deleting: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
